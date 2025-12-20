@@ -40,4 +40,4 @@ class Leaderboard(SQLModel, table=True):
     count_t567_pro: int | None = Field(default=None)
     count_pro: int | None = Field(default=None)
     count_tp: int | None = Field(default=None)
-    updated_on: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"server_default": "CURRENT_TIMESTAMP", "onupdate": "CURRENT_TIMESTAMP"})
+    updated_on: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False))

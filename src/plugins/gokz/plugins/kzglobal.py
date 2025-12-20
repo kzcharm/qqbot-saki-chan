@@ -132,7 +132,8 @@ async def _(event: Event, args: Message = CommandArg()):
     except IndexError:
         content += f"\n未发现裸跳记录:"
 
-    combined_message = MessageSegment.file_image(get_map_img_url(map_name)) + MessageSegment.text(content)
+    img_path = await get_map_img_url(map_name)
+    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
     await wr.send(combined_message)
 
     # if map_name == 'kz_hb_fafnir':
@@ -158,7 +159,8 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         ║ 服务器:　{data['server_name']}
         ╚ {record_format_time(data['created_on'])} ═══""").strip()
 
-    combined_message = MessageSegment.file_image(get_map_img_url(data['map_name'])) + MessageSegment.text(content)
+    img_path = await get_map_img_url(data['map_name'])
+    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
 
     await bot.send(event, combined_message)
 
@@ -213,7 +215,8 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         logger.info(repr(e))
         content += f"\n╚ 未发现裸跳记录"
 
-    combined_message = MessageSegment.file_image(get_map_img_url(map_name)) + MessageSegment.text(content)
+    img_path = await get_map_img_url(map_name)
+    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
 
     await bot.send(event, combined_message)
 
