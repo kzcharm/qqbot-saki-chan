@@ -13,6 +13,7 @@ from src.plugins.gokz.core.kreedz import search_map
 from src.plugins.gokz.core.kz.records import count_servers
 from ..api.dataclasses import LeaderboardData
 from ..api.helper import fetch_json
+from nonebot.adapters.qq import MessageSegment
 
 BASE = "https://api.gokz.top/"
 
@@ -52,6 +53,8 @@ async def find_handle(event: Event, args: Message = CommandArg()):
 async def check_cheng_fen(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await ccf.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await ccf.finish(cd.error)
 
     url = f'{BASE}records/top/{cd.steamid}?mode={cd.mode}'
@@ -103,6 +106,8 @@ async def gokz_top_rank(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     print(cd.update)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await rank.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await rank.finish(cd.error)
 
     if cd.update:
@@ -149,6 +154,8 @@ async def gokz_top_rank(event: Event, args: Message = CommandArg()):
 async def map_progress(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await progress.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await progress.finish(cd.error)
 
     map_name = search_map(cd.args[0])[0]

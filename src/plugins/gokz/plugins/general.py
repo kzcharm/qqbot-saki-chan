@@ -30,6 +30,11 @@ info = on_command("info")
 @info.handle()
 async def _(event: MessageEvent, args: Message = CommandArg()):
     cd = CommandData(event, args)
+    if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await info.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
+        return await info.finish(cd.error)
+    
     with Session(engine) as session:
         statement = select(User).where(User.qid == cd.qid)  # NOQA
         user: User = session.exec(statement).one()
@@ -54,8 +59,9 @@ async def _():
 @bind.handle()
 async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     input_text = args.extract_plain_text()
+    image_path = Path('data/img/binding.png')
+    
     if not input_text:
-        image_path = Path('data/img/binding.png')
         if image_path.exists():
             return await bind.finish(MessageSegment.file_image(image_path))
         else:
@@ -63,6 +69,10 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
                 return await bind.finish("请输入绑定码或steamid")
             else:
                 return await bind.finish("请输入绑定码")
+
+    # Send binding image when user provides input
+    if image_path.exists():
+        await bind.send(MessageSegment.file_image(image_path))
 
     steamid = None
     binding_code_result = None

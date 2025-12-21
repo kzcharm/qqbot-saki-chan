@@ -3,6 +3,7 @@ import shlex
 import re
 from dataclasses import dataclass, field, asdict
 from typing import Optional, Tuple
+from pathlib import Path
 
 from sqlmodel import Session
 
@@ -22,6 +23,7 @@ class CommandData:
     args: Tuple = field(default_factory=tuple)
     update: bool = False
     error: Optional[str] = None
+    error_image: Optional[Path] = None
 
     def __init__(self, event, args):
         self.qid = event.get_user_id()
@@ -35,7 +37,8 @@ class CommandData:
             user = session.get(User, self.qid)  # NOQA
 
             if not user or not user.steamid:
-                self.error = '客服小祥温馨提示您: 请先 /bind steamid'
+                self.error = '客服小祥温馨提示您: 请先 /bind'
+                self.error_image = Path('data/img/binding.png')
                 print(self.error)
                 return
 

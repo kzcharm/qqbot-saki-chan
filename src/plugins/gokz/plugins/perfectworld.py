@@ -1,7 +1,7 @@
 import aiohttp
 from textwrap import dedent
 from nonebot import on_command
-from nonebot.adapters.qq import MessageEvent, Message
+from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from nonebot.params import CommandArg
 from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.steam_user import convert_steamid
@@ -13,6 +13,8 @@ pw = on_command("pw", aliases={"完美", "perfectworld"})
 async def _(event: MessageEvent, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await pw.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pw.finish(cd.error)
 
     steamid64 = convert_steamid(cd.steamid, 64)

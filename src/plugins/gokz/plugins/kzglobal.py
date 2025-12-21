@@ -53,6 +53,8 @@ def convert_to_shanghai_time(date_str):
 async def _(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await ban_.send(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await ban_.send(cd.error)
 
     bans = await fetch_personal_bans(steamid64=cd.steamid)
@@ -89,6 +91,8 @@ async def _(event: Event, args: Message = CommandArg()):
 async def _(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await wr.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await wr.finish(cd.error)
 
     if not cd.args:
@@ -144,6 +148,8 @@ async def _(event: Event, args: Message = CommandArg()):
 async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await pr.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pr.finish(cd.error)
 
     data = await fetch_personal_recent(cd.steamid, cd.mode)
@@ -169,6 +175,8 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
 async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await pb.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pb.finish(cd.error)
 
     if not cd.args:
@@ -225,6 +233,8 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
 async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
+        if cd.error_image and cd.error_image.exists():
+            return await bot.send(event, MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await bot.send(event, cd.error)
 
     if cd.mode == "kz_vanilla":
