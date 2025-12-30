@@ -47,6 +47,9 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
         默认模式:      {format_kzmode(cd.mode, form='m').upper()}
         QID: {cd.qid}
     """).strip()
+    # Add newline at start for group messages (bot will @ user automatically)
+    if getattr(event, 'group_id', None):
+        content = '\n' + content
     await info.finish(content)
 
 
@@ -70,22 +73,22 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
             else:
                 return await bind.finish("请输入绑定码")
 
-    # Send binding image when user provides input
-    if image_path.exists():
-        await bind.send(MessageSegment.file_image(image_path))
-
     steamid = None
     binding_code_result = None
 
     # Try to decode as binding code first
     if len(input_text) == 32 and all(c.upper() in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" for c in input_text):
         if not QQ_BOT_SECRET:
+            if image_path.exists():
+                return await bind.finish(MessageSegment.file_image(image_path) + MessageSegment.text("绑定码功能未配置，请联系管理员"))
             return await bind.finish("绑定码功能未配置，请联系管理员")
         
         binding_code_result = decode_binding_code(input_text.upper(), QQ_BOT_SECRET)
         if binding_code_result:
             steamid = binding_code_result["steamid64"]
         elif not ENABLE_DIRECT_STEAM_BINDING:
+            if image_path.exists():
+                return await bind.finish(MessageSegment.file_image(image_path) + MessageSegment.text("绑定码无效或已过期，请重新生成"))
             return await bind.finish("绑定码无效或已过期，请重新生成")
     
     # If binding code failed and direct binding is enabled, try direct SteamID
@@ -93,8 +96,12 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
         try:
             steamid = convert_steamid(input_text)
         except ValueError:
+            if image_path.exists():
+                return await bind.finish(MessageSegment.file_image(image_path) + MessageSegment.text("Steamid格式不正确"))
             return await bind.finish("Steamid格式不正确")
     elif not steamid:
+        if image_path.exists():
+            return await bind.finish(MessageSegment.file_image(image_path) + MessageSegment.text("绑定码无效或已过期，请重新生成"))
         return await bind.finish("绑定码无效或已过期，请重新生成")
 
     # 阻止他们绑定前20玩家的steamid
@@ -146,7 +153,9 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
         {qq_name}
         {user.steamid}
     """).strip()
-
+    # Add newline at start for group messages (bot will @ user automatically)
+    if getattr(event, 'group_id', None):
+        content = '\n' + content
     await bind.finish(content)
 
 

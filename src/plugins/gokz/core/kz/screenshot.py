@@ -94,59 +94,59 @@ def kzgoeu_screenshot(steamid, kz_mode, force_update=False):
     return str(cache_file)
 
 
-def vnl_screenshot(steamid, force_update=False):
-    steamid64 = convert_steamid(steamid, 2)
-    steamid = convert_steamid(steamid)
-    steamid64 = convert_steamid(steamid, 64)
-
+def vnl_screenshot(steamid: str, force_update: bool = False) -> str:
+    steamid64 = str(convert_steamid(steamid, 64))
     cache_file = store.get_cache_file("plugin_name", f"{steamid64}_kz_vanilla.png")
 
     # Check last modified date of the file
     if not force_update:
         last_modified_date = check_last_modified_date(cache_file)
         if last_modified_date and (datetime.now() - last_modified_date <= timedelta(days=1)):
-            # If file modified within 1 day, return URL directly
             return str(cache_file)
 
-    # Use Selenium to open the browser
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # Run Chrome in headless mode
-    options.add_argument("--no-sandbox")  # Bypass OS security model
-
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
     driver = webdriver.Chrome(options=options)
 
-    # Open the VNL page
-    kzgo_url = f"https://vnl.kz/#/stats/{steamid64}"
-    driver.get(kzgo_url)
-
-    # Set browser window size
-    width = 920
-    height = 620
+    driver.get(f"https://vnl.kz/#/stats/{steamid64}")
+    # Increase window size to capture more content
+    width, height = 920, 700
     driver.set_window_size(width, height)
+    
+    wait = WebDriverWait(driver, 30)
+    
+    # Wait for the main content to load
+    wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'TP')]")))
+    
+    # Wait for avatar image to load
+    try:
+        # Wait for the avatar img element to be present
+        avatar_img = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "img[src*='avatars.steamstatic.com']")))
+        # Wait for the image to be fully loaded
+        wait.until(lambda d: d.execute_script(
+            "return arguments[0].complete && arguments[0].naturalHeight > 0", 
+            avatar_img
+        ))
+    except Exception:
+        # If avatar doesn't load, continue anyway after a short delay
+        time.sleep(1)
+    
+    # Wait for progress bars or other key content elements to be visible
+    try:
+        wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'PRO')]")))
+        # Additional wait for any progress bars to render
+        time.sleep(1.5)
+    except Exception:
+        # If elements don't appear, wait a bit more before screenshot
+        time.sleep(2)
 
-    # Wait for the webpage to load
-    WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'TP')]"))
-    )
-
-    # Capture a screenshot of the entire webpage
     screenshot = driver.get_screenshot_as_png()
-
-    # Close the browser
     driver.quit()
 
-    # Open the screenshot with Pillow
     img = Image.open(BytesIO(screenshot))
-
-    # Crop the image
-    left = 0
-    top = 65
-    right = width - 15
-    bottom = height - 95
-    cropped_img = img.crop((left, top, right, bottom))
-
-    # Save the cropped screenshot to the cache directory
-    cropped_img.save(cache_file)
-
+    # Crop: remove top 64px and bottom 130px, keep small side margins
+    cropped = img.crop((10, 64, width - 10, height - 130))
+    cropped.save(cache_file)
     return str(cache_file)
 

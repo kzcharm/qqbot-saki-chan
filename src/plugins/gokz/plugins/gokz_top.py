@@ -44,6 +44,9 @@ async def find_handle(event: Event, args: Message = CommandArg()):
             content += "未找到该玩家"
         for player in players:
             content += f"{player.name} | {player.steamid} | {player.total_points//10000}w分\n"
+        # Add newline at start for group messages (bot will @ user automatically)
+        if getattr(event, 'group_id', None):
+            content = '\n' + content
         await find.send(content)
     else:
         await find.send("客服小祥提醒您: 请输入你要查找的玩家名")
@@ -95,6 +98,9 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
         """).strip() + '\n'
         for idx, server in enumerate(data):
             content += f"{idx+1}. {server['server']} | {server['count']}次 | ({server['per']}%)\n"
+        # Add newline at start for group messages (bot will @ user automatically)
+        if getattr(event, 'group_id', None):
+            content = '\n' + content
         return await ccf.finish(content)
     except (KeyError, IndexError, TypeError) as e:
         logger.error(f"Error processing records data: {e}")
@@ -147,7 +153,10 @@ async def gokz_top_rank(event: Event, args: Message = CommandArg()):
         上次更新:　{data.updated_on.replace('T', ' ')}
         """
     ).strip()
-    return await rank.finish('\n' + content)
+    # Add newline at start for group messages (bot will @ user automatically)
+    if getattr(event, 'group_id', None):
+        content = '\n' + content
+    return await rank.finish(content)
 
 
 @progress.handle()
@@ -202,6 +211,9 @@ async def map_progress(event: Event, args: Message = CommandArg()):
                 else:
                     content += f"╚ 时间未知\n"
             
+            # Add newline at start for group messages (bot will @ user automatically)
+            if getattr(event, 'group_id', None):
+                content = '\n' + content
             return await progress.finish(content)
         except Exception as e:
             logger.error(f"Fallback to kztimerglobal also failed: {e}")
@@ -247,6 +259,9 @@ async def map_progress(event: Event, args: Message = CommandArg()):
 
         content += generate_content(tp_records, completions, 'TP')
         content += generate_content(pro_records, completions, 'PRO')
+        # Add newline at start for group messages (bot will @ user automatically)
+        if getattr(event, 'group_id', None):
+            content = '\n' + content
         await progress.finish(content)
     except (KeyError, IndexError, TypeError, ValueError) as e:
         logger.error(f"Error processing progress data: {e}")

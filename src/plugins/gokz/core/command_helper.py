@@ -72,6 +72,9 @@ class CommandData:
 def parse_args(text: str) -> dict:
     steamid64_pattern = re.compile(r"7656119\d{10}")
     steamid_pattern = re.compile(r"STEAM_[0-1]:[0-1]:\d+")
+    
+    # Mode flags that should be treated as -m <mode>
+    mode_flags = {'k', 's', 'v', 'kzt', 'skz', 'vnl'}
 
     parser = argparse.ArgumentParser(description='Parse arguments from a text string.')
     parser.add_argument('args', nargs='*', help='Positional arguments before the flags')
@@ -83,6 +86,24 @@ def parse_args(text: str) -> dict:
 
     try:
         args = shlex.split(text)
+        
+        # Preprocess: find mode flags in positional arguments and convert them to -m <mode>
+        # Only do this if -m or --mode is not already present
+        has_mode_flag = any(arg in ['-m', '--mode'] for arg in args)
+        if not has_mode_flag:
+            new_args = []
+            mode_found = None
+            for arg in args:
+                arg_lower = arg.lower()
+                if arg_lower in mode_flags:
+                    # Found a mode flag, convert it to -m <mode>
+                    mode_found = arg_lower
+                    new_args.extend(['-m', arg_lower])
+                else:
+                    new_args.append(arg)
+            if mode_found is not None:
+                args = new_args
+        
         parsed_args = parser.parse_args(args)
 
         # Search for steamid64 or steamid in the positional arguments
