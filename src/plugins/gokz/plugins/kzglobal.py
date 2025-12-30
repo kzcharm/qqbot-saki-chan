@@ -262,23 +262,37 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
     leaderboard_url = f"{BASE_URL}/leaderboards/{cd.steamid}"
     player_url = f"{BASE_URL}/players/{cd.steamid}"
     
-    # Fetch player info to get name/alias
-    player_data = await fetch_json(player_url, timeout=30)
+    # Prepare headers with API key if available
+    headers = {}
+    if GOKZ_TOP_API_KEY:
+        headers["Authorization"] = f"Bearer {GOKZ_TOP_API_KEY}"
+    
+    # Fetch player info to get name/alias (silently ignore errors)
     player_name = 'N/A'
-    if player_data:
-        player_name = player_data.get('alias') or player_data.get('name', 'N/A')
+    try:
+        player_data = await fetch_json(player_url, timeout=30, headers=headers)
+        # Only use player_data if it's a valid success response (not an error response)
+        if player_data and isinstance(player_data, dict) and 'detail' not in player_data:
+            player_name = player_data.get('alias') or player_data.get('name', 'N/A')
+    except Exception:
+        # Silently ignore any errors when fetching player info
+        pass
     
     # If update flag is set, use PUT request with kz_timer format
     if cd.update:
         # PUT uses mode=kz_timer format
         params = {"mode": cd.mode}
-        rank_data = await put_json(leaderboard_url, params=params, timeout=30)
+        rank_data = await put_json(leaderboard_url, params=params, timeout=30, headers=headers)
         if rank_data is None:
             return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
         
-        # Check for error response
-        if rank_data.get('detail'):
+        # Check for error response (API returned non-200 with detail field)
+        if isinstance(rank_data, dict) and rank_data.get('detail'):
             return await rank.finish(rank_data.get('detail'))
+        
+        # Check if response is not a valid success response (missing required fields)
+        if not isinstance(rank_data, dict) or 'steamid64' not in rank_data:
+            return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
         
         # Format response with update information
         differ = rank_data.get('differ', {})
@@ -403,13 +417,17 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
         }
         api_mode = mode_mapping.get(cd.mode, cd.mode.upper())
         params = {"mode": api_mode}
-        rank_data = await fetch_json(leaderboard_url, params=params, timeout=30)
+        rank_data = await fetch_json(leaderboard_url, params=params, timeout=30, headers=headers)
         if rank_data is None:
             return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
         
-        # Check for error response
-        if rank_data.get('detail'):
+        # Check for error response (API returned non-200 with detail field)
+        if isinstance(rank_data, dict) and rank_data.get('detail'):
             return await rank.finish(rank_data.get('detail'))
+        
+        # Check if response is not a valid success response (missing required fields)
+        if not isinstance(rank_data, dict) or 'steamid64' not in rank_data:
+            return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
         
         content = dedent(f"""
             ╔════════════
@@ -480,11 +498,16 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     summary_params = {"map_name": map_name, "limit": 100}
     summary_data = await fetch_json(summary_url, params=summary_params, headers=headers, timeout=30)
     
-    if summary_data is None or not isinstance(summary_data, dict):
+    if summary_data is None:
         return await review.finish("gokz-top API服务暂时不可用，请稍后再试。")
     
-    if summary_data.get('detail'):
+    # Check for error response (API returned non-200 with detail field)
+    if isinstance(summary_data, dict) and summary_data.get('detail'):
         return await review.finish(summary_data.get('detail'))
+    
+    # Ensure we have a valid dict response
+    if not isinstance(summary_data, dict):
+        return await review.finish("gokz-top API返回了无效数据，请稍后再试。")
     
     summary_list = summary_data.get('data', [])
     if not summary_list or len(summary_list) == 0:

@@ -15,7 +15,8 @@ async def fetch_json(*urls, params=None, timeout=15, headers=None):
         headers: Optional headers dictionary
     
     Returns:
-        JSON data or None if request fails
+        JSON data or None if request fails (network/timeout errors)
+        For non-200 status codes, returns the error response JSON if available
     """
     async def fetch(session_, url_):
         try:
@@ -23,8 +24,16 @@ async def fetch_json(*urls, params=None, timeout=15, headers=None):
                 if response.status == 200:
                     return await response.json()
                 else:
-                    logger.warning(f"API request failed with status {response.status}: {url_}")
-                    return None
+                    # Try to parse error response as JSON to get detail message
+                    try:
+                        error_json = await response.json()
+                        logger.warning(f"API request failed with status {response.status}: {url_}, error: {error_json.get('detail', '')}")
+                        return error_json  # Return error response so caller can check for 'detail'
+                    except Exception:
+                        # If JSON parsing fails, log and return None
+                        error_text = await response.text()
+                        logger.warning(f"API request failed with status {response.status}: {url_}, error: {error_text}")
+                        return None
         except aiohttp.ClientError as e:
             logger.error(f"Network error fetching {url_}: {e}")
             return None
@@ -46,21 +55,36 @@ async def fetch_json(*urls, params=None, timeout=15, headers=None):
             return tuple(responses)
 
 
-async def put_json(url, params=None, timeout=15):
+async def put_json(url, params=None, timeout=15, headers=None):
     """
     Send PUT request to URL with error handling.
     
+    Args:
+        url: URL to PUT to
+        params: Query parameters
+        timeout: Request timeout in seconds
+        headers: Optional headers dictionary
+    
     Returns:
-        JSON data or None if request fails
+        JSON data or None if request fails (network/timeout errors)
+        For non-200 status codes, returns the error response JSON if available
     """
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
-            async with session.put(url, params=params) as response:
+            async with session.put(url, params=params, headers=headers) as response:
                 if response.status == 200:
                     return await response.json()
                 else:
-                    logger.warning(f"API PUT request failed with status {response.status}: {url}")
-                    return None
+                    # Try to parse error response as JSON to get detail message
+                    try:
+                        error_json = await response.json()
+                        logger.warning(f"API PUT request failed with status {response.status}: {url}, error: {error_json.get('detail', '')}")
+                        return error_json  # Return error response so caller can check for 'detail'
+                    except Exception:
+                        # If JSON parsing fails, log and return None
+                        error_text = await response.text()
+                        logger.warning(f"API PUT request failed with status {response.status}: {url}, error: {error_text}")
+                        return None
     except aiohttp.ClientError as e:
         logger.error(f"Network error PUTting {url}: {e}")
         return None

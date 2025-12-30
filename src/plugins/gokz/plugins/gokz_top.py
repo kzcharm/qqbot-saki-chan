@@ -1,7 +1,6 @@
 from datetime import datetime
 from textwrap import dedent
 
-import httpx
 from nonebot import on_command, logger
 from nonebot.adapters.qq import MessageEvent as Event, Message
 from nonebot.params import CommandArg
@@ -17,7 +16,6 @@ from nonebot.adapters.qq import MessageSegment
 
 BASE = "https://api.gokz.top/"
 
-rank = on_command('rank', aliases={'排行'})
 progress = on_command('mp', aliases={'progress', '进度'})
 ccf = on_command('ccf', aliases={'查成分'})
 pk = on_command('pk', aliases={'pk'})
@@ -32,6 +30,10 @@ async def find_handle(event: Event, args: Message = CommandArg()):
         
         if players_data is None:
             return await find.finish("gokz-top API服务暂时不可用，请稍后再试。")
+        
+        # Check for error response (API returned non-200 with detail field)
+        if isinstance(players_data, dict) and players_data.get('detail'):
+            return await find.finish(players_data.get('detail'))
         
         try:
             players = [LeaderboardData.from_dict(player) for player in players_data]
@@ -105,58 +107,6 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
     except (KeyError, IndexError, TypeError) as e:
         logger.error(f"Error processing records data: {e}")
         return await ccf.finish("解析数据失败，请稍后再试。")
-
-
-@rank.handle()
-async def gokz_top_rank(event: Event, args: Message = CommandArg()):
-    cd = CommandData(event, args)
-    print(cd.update)
-    if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await rank.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
-        return await rank.finish(cd.error)
-
-    if cd.update:
-        try:
-            httpx.put(f'http://localhost:8000/leaderboard/{cd.steamid}?mode={cd.mode}')
-        except Exception as e:
-            logger.warning(f"Failed to update leaderboard: {e}")
-
-    url = f'{BASE}leaderboard/{cd.steamid}?mode={cd.mode}'
-    rank_data = await fetch_json(url, timeout=10)
-    
-    if rank_data is None:
-        return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
-    
-    if rank_data.get('detail'):
-        return await rank.finish(rank_data.get('detail'))
-    
-    try:
-        data = LeaderboardData.from_dict(rank_data)
-    except (AttributeError, KeyError, TypeError) as e:
-        logger.error(f"Error parsing leaderboard data: {e}")
-        return await rank.finish("无法解析排行榜数据，请稍后再试。")
-
-    content = dedent(
-        f"""     
-        昵称:　　　{data.name}
-        steamid:　 {data.steamid}
-        模式:　　　{cd.mode}
-        Rating:　　{data.pts_skill}
-        段位:　　　{data.rank_name}
-        排名:　　　No.{data.rank}
-        百分比:　　{data.percentage}
-        总分:　　　{data.total_points}
-        地图数:　　{data.count}
-        平均分:　　{data.pts_avg}
-        常玩服务器:{data.most_played_server}
-        上次更新:　{data.updated_on.replace('T', ' ')}
-        """
-    ).strip()
-    # Add newline at start for group messages (bot will @ user automatically)
-    if getattr(event, 'group_id', None):
-        content = '\n' + content
-    return await rank.finish(content)
 
 
 @progress.handle()
