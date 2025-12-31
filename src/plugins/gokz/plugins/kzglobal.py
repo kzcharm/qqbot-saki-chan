@@ -13,7 +13,7 @@ from ..api.kztimerglobal import fetch_personal_best, fetch_personal_recent, fetc
     update_map_data
 from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
-from src.plugins.gokz.core.config import MAP_TIERS, get_map_tier
+from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.kreedz import search_map
 from src.plugins.gokz.core.kz.screenshot import vnl_screenshot_async, kzgoeu_screenshot_async
@@ -110,11 +110,10 @@ async def _(event: Event, args: Message = CommandArg()):
         map_name = search_map(cd.args[0])[0]
 
     kz_mode = cd.mode
-    map_tier = await get_map_tier(map_name)
 
     content = dedent(f"""
         ╔ 地图:　{map_name}
-        ║ 难度:　T{map_tier}
+        ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
         ║ 模式:　{kz_mode}
         ╠═════存点记录═════
     """).strip()
@@ -166,11 +165,10 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         return await pr.finish(cd.error)
 
     data = await fetch_personal_recent(cd.steamid, cd.mode)
-    map_tier = await get_map_tier(data['map_name'])
 
     content = dedent(f"""
         ╔ 地图:　　{data['map_name']}
-        ║ 难度:　　T{map_tier}
+        ║ 难度:　　T{MAP_TIERS.get(data['map_name'], '未知')}
         ║ 模式:　　{cd.mode}
         ║ 玩家:　　{data['player_name']} 
         ║ 用时:　　{format_gruntime(data['time'])}
@@ -201,10 +199,9 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     else:
         map_name = search_map(cd.args[0])[0]
 
-    map_tier = await get_map_tier(map_name)
     content = dedent(f"""
         ╔ 地图:　{map_name}
-        ║ 难度:　T{map_tier}
+        ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
         ║ 模式:　{cd.mode}
         ╠═════存点记录═════""").strip()
 
@@ -525,9 +522,6 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     gameplay_count = stars.get('gameplay_count') or 0
     comment_count = summary.get('comment_count') or 0
     
-    # Get map tier from API
-    map_tier = await get_map_tier(map_name)
-    
     # Fetch map data to get authors
     map_url = f"{BASE_URL}/maps/name/{map_name}"
     map_data = await fetch_json(map_url, headers=headers, timeout=30)
@@ -543,7 +537,7 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     # Build summary content
     content = dedent(f"""
         ╔ 地图:　{map_name}
-        ║ 难度:　T{map_tier}
+        ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
     """).strip()
     
     # Append author information if available
