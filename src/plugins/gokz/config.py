@@ -7,6 +7,7 @@ load_dotenv()
 
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 GOKZ_TOP_API_KEY = os.getenv("GOKZ_TOP_API_KEY", "")
+UPTIME_KUMA_API_KEY = os.getenv("UPTIME_KUMA_API_KEY", "")
 QQ_BOT_SECRET = os.getenv("qq_bot_secret", "")
 ENABLE_DIRECT_STEAM_BINDING = os.getenv("enable_direct_steam_binding", "").lower() in ("true", "1", "yes")
 
@@ -14,3 +15,4 @@ ENABLE_DIRECT_STEAM_BINDING = os.getenv("enable_direct_steam_binding", "").lower
 class Config(BaseModel):
     """Plugin Config Here"""
     steam_api_key: str = STEAM_API_KEY
+    uptime_kuma_api_key: str = UPTIME_KUMA_API_KEY

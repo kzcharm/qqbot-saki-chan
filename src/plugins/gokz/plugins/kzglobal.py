@@ -9,7 +9,7 @@ from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 
-from ..api.kztimerglobal import fetch_personal_best, fetch_personal_recent, fetch_world_record, fetch_personal_bans, \
+from ..api.kztimerglobal import fetch_personal_best, fetch_personal_recent, fetch_world_record, fetch_overall_world_record, fetch_personal_bans, \
     update_map_data
 from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
@@ -115,21 +115,21 @@ async def _(event: Event, args: Message = CommandArg()):
         ╔ 地图:　{map_name}
         ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
         ║ 模式:　{kz_mode}
-        ╠═════存点记录═════
+        ╠═════Overall记录═════
     """).strip()
 
     try:
-        data = await fetch_world_record(map_name, mode=kz_mode, has_tp=True)
+        data = await fetch_overall_world_record(map_name, mode=kz_mode)
         content += dedent(f"""
             ║ {data['steam_id']}
             ║ 昵称:　　{data['player_name']}
             ║ 用时:　　{format_gruntime(data['time'])}
-            ║ 存点数:　{data['teleports']}
+            ║ 存点数:　{data.get('teleports', 'N/A')}
             ║ 分数:　　{data['points']}
             ║ 服务器:　{data['server_name']}
-            ║ {record_format_time(data['created_on'])}""")
+            ║ {record_format_time(data.get('created_on') or data.get('updated_on'))}""")
     except IndexError:
-        content += f"\n╠ 未发现存点记录:"
+        content += f"\n╠ 未发现Overall记录:"
 
     content += f"\n╠═════裸跳记录═════"
     try:

@@ -104,6 +104,24 @@ async def fetch_world_record(map_name, mode='kzt', has_tp=True):
     return data[0]
 
 
+async def fetch_overall_world_record(map_name, mode='kzt'):
+    """Fetch Overall WR (not TP-specific) for a map"""
+    mode = format_kzmode(mode)
+    params = {
+        'map_name': map_name,
+        'tickrate': 128,
+        'overall': 'true',
+        'stage': 0,
+        'modes_list_string': mode,
+        'limit': 1
+    }
+
+    data = await fetch_json(f"{GLOBAL_API_URL}records/top", params=params)
+    if not data or len(data) == 0:
+        raise IndexError("No overall WR found")
+    return data[0]
+
+
 async def fetch_personal_purity(steamid64, mode='kzt', exclusive=False) -> dict:
     server_id = [1683, 1633, 1393]
 
