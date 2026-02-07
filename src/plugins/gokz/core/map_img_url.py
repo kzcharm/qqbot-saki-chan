@@ -1,5 +1,6 @@
 import aiohttp
 from pathlib import Path
+from typing import Optional
 from aiohttp import ClientTimeout
 
 import nonebot_plugin_localstore as store
@@ -11,7 +12,7 @@ require("nonebot_plugin_localstore")
 CDN_BASE_URL = "https://cdn.jsdelivr.net/gh/KZGlobalTeam/map-images@public/mediums"
 
 
-async def get_map_img_url(map_name: str) -> Path:
+async def get_map_img_url(map_name: str) -> Optional[Path]:
     """
     Get the path to a cached map image, downloading it from CDN if necessary.
     
@@ -19,7 +20,7 @@ async def get_map_img_url(map_name: str) -> Path:
         map_name: The name of the map (e.g., 'kz_prototype')
         
     Returns:
-        Path to the cached image file
+        Path to the cached image file, or None if unavailable
     """
     cache_file = store.get_cache_file("gokz", f"map_images/{map_name}.jpg")
     
@@ -41,13 +42,16 @@ async def get_map_img_url(map_name: str) -> Path:
                         f.write(await response.read())
                     return cache_file
                 else:
-                    # If download fails, raise an exception
-                    raise FileNotFoundError(f"Failed to download map image for {map_name}: HTTP {response.status}")
+                    from nonebot import logger
+                    logger.info(
+                        f"Map image not available for {map_name}: HTTP {response.status}"
+                    )
+                    return None
     except aiohttp.ClientError as e:
-        # Network errors - log and re-raise
+        # Network errors - log and return None
         from nonebot import logger
-        logger.error(f"Network error downloading map image for {map_name}: {e}")
-        raise FileNotFoundError(f"Failed to download map image for {map_name}: {e}") from e
+        logger.info(f"Network error downloading map image for {map_name}: {e}")
+        return None
     except Exception as e:
         # Other errors - log and re-raise
         from nonebot import logger

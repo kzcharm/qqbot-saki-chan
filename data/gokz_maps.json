@@ -2328,6 +2328,30 @@
     "download_url": null
   },
   {
+    "id": 1284,
+    "name": "kz_cf_ikumi",
+    "filesize": 16500272,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2025-06-18T15:03:29",
+    "updated_on": "2025-06-18T15:03:29",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3471973910",
+    "download_url": null
+  },
+  {
+    "id": 1283,
+    "name": "kz_cf_powerplant",
+    "filesize": 147934416,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2025-06-18T15:03:29",
+    "updated_on": "2025-06-18T15:03:29",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3468928082",
+    "download_url": null
+  },
+  {
     "id": 1216,
     "name": "kz_cf_slide",
     "filesize": 41263092,
@@ -3120,6 +3144,18 @@
     "download_url": null
   },
   {
+    "id": 1287,
+    "name": "kz_delivery",
+    "filesize": 443010272,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3481659992",
+    "download_url": null
+  },
+  {
     "id": 811,
     "name": "kz_delphinium",
     "filesize": 76791944,
@@ -3238,6 +3274,18 @@
     "approved_by_steamid64": "76561198120168778",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=491411804",
     "download_url": ""
+  },
+  {
+    "id": 1286,
+    "name": "kz_diryaviy_cotow",
+    "filesize": 70040860,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3473837685",
+    "download_url": null
   },
   {
     "id": 1126,
@@ -3612,6 +3660,18 @@
     "download_url": null
   },
   {
+    "id": 1299,
+    "name": "kz_elysian",
+    "filesize": 66396856,
+    "validated": true,
+    "difficulty": 6,
+    "created_on": "2026-02-06T23:06:31",
+    "updated_on": "2026-02-06T23:06:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3499236360",
+    "download_url": null
+  },
+  {
     "id": 326,
     "name": "kz_emblem",
     "filesize": 73648597,
@@ -3924,16 +3984,16 @@
     "download_url": ""
   },
   {
-    "id": 693,
-    "name": "kz_fas2map",
-    "filesize": 4370696,
+    "id": 1308,
+    "name": "kz_fast2map",
+    "filesize": 44606208,
     "validated": true,
     "difficulty": 2,
-    "created_on": "2019-11-23T21:10:40",
-    "updated_on": "2019-11-23T21:10:40",
-    "approved_by_steamid64": "76561198120168778",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1699101066",
-    "download_url": ""
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3464554931",
+    "download_url": null
   },
   {
     "id": 340,
@@ -4236,6 +4296,18 @@
     "download_url": ""
   },
   {
+    "id": 1290,
+    "name": "kz_garish",
+    "filesize": 150109580,
+    "validated": true,
+    "difficulty": 6,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/workshop/filedetails/?id=3493251902",
+    "download_url": null
+  },
+  {
     "id": 913,
     "name": "kz_gary",
     "filesize": 37483256,
@@ -4281,6 +4353,18 @@
     "updated_on": "2021-08-05T00:14:11",
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2545055458",
+    "download_url": null
+  },
+  {
+    "id": 1295,
+    "name": "kz_genotype",
+    "filesize": 101647360,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3495428917",
     "download_url": null
   },
   {
@@ -5016,6 +5100,18 @@
     "download_url": null
   },
   {
+    "id": 1296,
+    "name": "kz_house",
+    "filesize": 16772020,
+    "validated": true,
+    "difficulty": 3,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3498930058",
+    "download_url": null
+  },
+  {
     "id": 817,
     "name": "kz_how2slide_fix",
     "filesize": 60974344,
@@ -5376,6 +5472,18 @@
     "download_url": null
   },
   {
+    "id": 1305,
+    "name": "kz_kiwiconsecration",
+    "filesize": 55826528,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3646628933",
+    "download_url": null
+  },
+  {
     "id": 1140,
     "name": "kz_kiwideath",
     "filesize": 155346376,
@@ -5601,6 +5709,18 @@
     "updated_on": "2021-06-05T15:52:16",
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2457427747",
+    "download_url": null
+  },
+  {
+    "id": 1291,
+    "name": "kz_kiwi_trol",
+    "filesize": 168554140,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3453055816",
     "download_url": null
   },
   {
@@ -6684,6 +6804,18 @@
     "download_url": null
   },
   {
+    "id": 1300,
+    "name": "kz_lowtiercat",
+    "filesize": 142149084,
+    "validated": true,
+    "difficulty": 3,
+    "created_on": "2026-02-06T23:06:31",
+    "updated_on": "2026-02-06T23:06:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3499964013",
+    "download_url": null
+  },
+  {
     "id": 1200,
     "name": "kz_ltt",
     "filesize": 25845356,
@@ -6814,6 +6946,18 @@
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1098716930",
     "download_url": ""
+  },
+  {
+    "id": 1302,
+    "name": "kz_mast",
+    "filesize": 42062248,
+    "validated": true,
+    "difficulty": 3,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3643600079",
+    "download_url": null
   },
   {
     "id": 587,
@@ -6982,6 +7126,18 @@
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2259353310",
     "download_url": ""
+  },
+  {
+    "id": 1294,
+    "name": "kz_micro_bad",
+    "filesize": 62761152,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3497681330",
+    "download_url": null
   },
   {
     "id": 824,
@@ -7392,6 +7548,18 @@
     "download_url": ""
   },
   {
+    "id": 1293,
+    "name": "kz_notes",
+    "filesize": 285741704,
+    "validated": true,
+    "difficulty": 3,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3498073777",
+    "download_url": null
+  },
+  {
     "id": 1007,
     "name": "kz_nuclear",
     "filesize": 60428632,
@@ -7401,6 +7569,18 @@
     "updated_on": "2021-08-05T00:17:49",
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2455248065",
+    "download_url": null
+  },
+  {
+    "id": 1288,
+    "name": "kz_nx_deciduous",
+    "filesize": 44281184,
+    "validated": true,
+    "difficulty": 3,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3493349597",
     "download_url": null
   },
   {
@@ -7570,6 +7750,18 @@
     "approved_by_steamid64": "76561198120168778",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2106385628",
     "download_url": ""
+  },
+  {
+    "id": 1309,
+    "name": "kz_overencumbered_fix",
+    "filesize": 28872545,
+    "validated": true,
+    "difficulty": 4,
+    "created_on": "2026-02-06T23:06:33",
+    "updated_on": "2026-02-06T23:06:33",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2787814765",
+    "download_url": null
   },
   {
     "id": 433,
@@ -8304,6 +8496,18 @@
     "download_url": ""
   },
   {
+    "id": 1285,
+    "name": "kz_refurinfunflay",
+    "filesize": 60575972,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3467507089",
+    "download_url": null
+  },
+  {
     "id": 462,
     "name": "kz_remedy_v2",
     "filesize": 13681796,
@@ -8505,6 +8709,18 @@
     "updated_on": "2021-01-29T00:18:20",
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2346899830",
+    "download_url": null
+  },
+  {
+    "id": 1292,
+    "name": "kz_sakhalin",
+    "filesize": 81067632,
+    "validated": true,
+    "difficulty": 6,
+    "created_on": "2025-06-18T15:03:31",
+    "updated_on": "2025-06-18T15:03:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3453820309",
     "download_url": null
   },
   {
@@ -9216,6 +9432,18 @@
     "download_url": null
   },
   {
+    "id": 1306,
+    "name": "kz_sneaky_slide",
+    "filesize": 124791008,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3574164243",
+    "download_url": null
+  },
+  {
     "id": 480,
     "name": "kz_snowman_v2",
     "filesize": 3963687,
@@ -9900,6 +10128,18 @@
     "download_url": ""
   },
   {
+    "id": 1298,
+    "name": "kz_submerged",
+    "filesize": 94679488,
+    "validated": true,
+    "difficulty": 4,
+    "created_on": "2026-02-06T23:06:31",
+    "updated_on": "2026-02-06T23:06:31",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3613425624",
+    "download_url": null
+  },
+  {
     "id": 491,
     "name": "kz_sukblock_v2_fixed",
     "filesize": 22821841,
@@ -10017,6 +10257,18 @@
     "updated_on": "2021-08-05T00:18:03",
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2329271354",
+    "download_url": null
+  },
+  {
+    "id": 1289,
+    "name": "kz_svtwo",
+    "filesize": 177816652,
+    "validated": true,
+    "difficulty": 5,
+    "created_on": "2025-06-18T15:03:30",
+    "updated_on": "2025-06-18T15:03:30",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3476042547",
     "download_url": null
   },
   {
@@ -10332,6 +10584,18 @@
     "download_url": ""
   },
   {
+    "id": 1307,
+    "name": "kz_timo_boll",
+    "filesize": 248986188,
+    "validated": true,
+    "difficulty": 5,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3501161042",
+    "download_url": null
+  },
+  {
     "id": 1255,
     "name": "kz_tmnf_e05",
     "filesize": 118298592,
@@ -10354,6 +10618,30 @@
     "approved_by_steamid64": "76561198143205331",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1099232235",
     "download_url": ""
+  },
+  {
+    "id": 1301,
+    "name": "kz_tomorrow",
+    "filesize": 85567296,
+    "validated": true,
+    "difficulty": 5,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3503718958",
+    "download_url": null
+  },
+  {
+    "id": 1304,
+    "name": "kz_toofar",
+    "filesize": 62430328,
+    "validated": true,
+    "difficulty": 2,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3498064241",
+    "download_url": null
   },
   {
     "id": 505,
@@ -11328,6 +11616,18 @@
     "download_url": null
   },
   {
+    "id": 1303,
+    "name": "vnl_limelemon",
+    "filesize": 167319244,
+    "validated": true,
+    "difficulty": 7,
+    "created_on": "2026-02-06T23:06:32",
+    "updated_on": "2026-02-06T23:06:32",
+    "approved_by_steamid64": "76561198201492663",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3646881079",
+    "download_url": null
+  },
+  {
     "id": 1261,
     "name": "vnl_ll_nuke",
     "filesize": 5069360,
@@ -11352,15 +11652,15 @@
     "download_url": null
   },
   {
-    "id": 1265,
-    "name": "vnl_sewerage",
-    "filesize": 420443828,
+    "id": 1297,
+    "name": "vnl_sewer",
+    "filesize": 420326972,
     "validated": true,
     "difficulty": 7,
-    "created_on": "2025-01-22T18:25:30",
-    "updated_on": "2025-01-22T18:25:44",
+    "created_on": "2025-06-18T15:07:32",
+    "updated_on": "2025-06-18T15:07:32",
     "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3378509952",
+    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3466312653",
     "download_url": ""
   },
   {
@@ -11602,581 +11902,5 @@
     "approved_by_steamid64": "76561198120168778",
     "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=419054050",
     "download_url": ""
-  },
-  {
-    "id": 234,
-    "name": "kz_agility_v2_fix",
-    "filesize": 5282896,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=392863247",
-    "download_url": ""
-  },
-  {
-    "id": 1197,
-    "name": "kz_alleviate",
-    "filesize": 108266664,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2022-12-11T15:33:06",
-    "updated_on": "2022-12-11T21:02:59",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2860249917",
-    "download_url": null
-  },
-  {
-    "id": 1071,
-    "name": "kz_ambition",
-    "filesize": 32933640,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2021-11-07T17:59:38",
-    "updated_on": "2025-01-22T17:54:25",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1765997996",
-    "download_url": null
-  },
-  {
-    "id": 709,
-    "name": "kz_atlantis_od",
-    "filesize": 64126376,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2020-02-10T17:09:20",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 648,
-    "name": "kz_autumn_valley",
-    "filesize": 16645824,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2019-05-17T02:50:29",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 916,
-    "name": "kz_betapmaps",
-    "filesize": 80775664,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "2021-01-29T00:18:19",
-    "updated_on": "2024-11-13T17:07:09",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2325269071",
-    "download_url": null
-  },
-  {
-    "id": 1006,
-    "name": "kz_beyond_fix",
-    "filesize": 7472792,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2021-08-02T22:59:48",
-    "updated_on": "2025-01-22T18:20:13",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2589204328",
-    "download_url": null
-  },
-  {
-    "id": 649,
-    "name": "kz_bhop_ice_od",
-    "filesize": 92392344,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2019-05-17T02:50:29",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 255,
-    "name": "kz_bhop_mosaic_od",
-    "filesize": 85884848,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 872,
-    "name": "kz_birrita",
-    "filesize": 42263832,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "2020-10-30T01:53:46",
-    "updated_on": "2020-10-30T01:53:46",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2240515420",
-    "download_url": ""
-  },
-  {
-    "id": 711,
-    "name": "kz_bir_dont",
-    "filesize": 40549768,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2020-02-10T17:09:20",
-    "updated_on": "2020-02-10T17:09:20",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 911,
-    "name": "kz_byrem",
-    "filesize": 95428408,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2021-01-29T00:18:19",
-    "updated_on": "2024-11-13T17:05:49",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2327576026",
-    "download_url": null
-  },
-  {
-    "id": 273,
-    "name": "kz_cascade_v3",
-    "filesize": 58005340,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=638212929",
-    "download_url": ""
-  },
-  {
-    "id": 305,
-    "name": "kz_dam",
-    "filesize": 62135004,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2023-03-11T20:52:18",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=647694230",
-    "download_url": ""
-  },
-  {
-    "id": 1270,
-    "name": "kz_diryavi_cotow",
-    "filesize": 73820904,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2025-04-14T10:56:14",
-    "updated_on": "2025-04-15T16:25:44",
-    "approved_by_steamid64": "76561198165203332",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3014172431",
-    "download_url": null
-  },
-  {
-    "id": 1116,
-    "name": "kz_d_decompile_d",
-    "filesize": 102294108,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "2022-03-12T13:34:53",
-    "updated_on": "2022-03-15T19:36:05",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2727334872",
-    "download_url": null
-  },
-  {
-    "id": 888,
-    "name": "kz_fly_lovers",
-    "filesize": 58536992,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "2020-11-28T01:13:08",
-    "updated_on": "2022-12-11T15:40:41",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2012561467",
-    "download_url": ""
-  },
-  {
-    "id": 1143,
-    "name": "kz_func_detail_v2",
-    "filesize": 46726806,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "2022-04-09T13:41:26",
-    "updated_on": "2022-04-22T00:21:09",
-    "approved_by_steamid64": "76561198003275951",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2777338625",
-    "download_url": null
-  },
-  {
-    "id": 351,
-    "name": "kz_genesis_go2",
-    "filesize": 50242724,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2021-08-05T00:18:56",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=491406427",
-    "download_url": ""
-  },
-  {
-    "id": 549,
-    "name": "kz_grate",
-    "filesize": 5725772,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2018-03-13T03:12:27",
-    "updated_on": "2018-03-13T03:12:27",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 550,
-    "name": "kz_grey",
-    "filesize": 9368656,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2018-03-13T03:12:27",
-    "updated_on": "2018-03-13T03:12:27",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 639,
-    "name": "kz_htc_purgatory",
-    "filesize": 86529020,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2019-01-17T23:52:39",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 393,
-    "name": "kz_kingsbay_v2",
-    "filesize": 59271348,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "76561198165203332",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 961,
-    "name": "kz_kzro_cavernste",
-    "filesize": 1,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2021-05-03T00:39:03",
-    "updated_on": "2021-08-05T00:22:28",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "",
-    "download_url": null
-  },
-  {
-    "id": 867,
-    "name": "kz_kzro_hardvalley",
-    "filesize": 20069872,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "2020-10-30T01:51:26",
-    "updated_on": "2024-11-13T17:05:28",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2215405289",
-    "download_url": ""
-  },
-  {
-    "id": 402,
-    "name": "kz_lost_marketplace_v1",
-    "filesize": 26285416,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2019-01-18T04:18:10",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 408,
-    "name": "kz_marblewalls_fixed",
-    "filesize": 7955172,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=391298485",
-    "download_url": ""
-  },
-  {
-    "id": 409,
-    "name": "kz_matilda_v2",
-    "filesize": 12398352,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 1046,
-    "name": "kz_nature_remaster",
-    "filesize": 56443036,
-    "validated": false,
-    "difficulty": 1,
-    "created_on": "2021-10-01T13:58:29",
-    "updated_on": "2021-10-01T18:11:22",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2534918172",
-    "download_url": null
-  },
-  {
-    "id": 940,
-    "name": "kz_northkorean_censorship",
-    "filesize": 62523664,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "2021-03-04T00:03:33",
-    "updated_on": "2022-08-07T15:27:28",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2382813554",
-    "download_url": null
-  },
-  {
-    "id": 1150,
-    "name": "kz_overencumbered",
-    "filesize": 29233160,
-    "validated": false,
-    "difficulty": 4,
-    "created_on": "2022-05-07T15:45:12",
-    "updated_on": "2022-05-12T08:11:48",
-    "approved_by_steamid64": "76561198165203332",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2787814765",
-    "download_url": null
-  },
-  {
-    "id": 1078,
-    "name": "kz_perplexity_v2",
-    "filesize": 9773184,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "2021-11-07T17:59:39",
-    "updated_on": "2022-07-09T14:19:09",
-    "approved_by_steamid64": "76561198003275951",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2832183547",
-    "download_url": null
-  },
-  {
-    "id": 1222,
-    "name": "kz_silk",
-    "filesize": 127188048,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2023-03-12T18:16:15",
-    "updated_on": "2024-11-13T17:07:21",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2888115331",
-    "download_url": null
-  },
-  {
-    "id": 1081,
-    "name": "kz_slide_isnt_kz",
-    "filesize": 48985268,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "2021-11-07T17:59:40",
-    "updated_on": "2024-11-13T17:10:02",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2425170637",
-    "download_url": null
-  },
-  {
-    "id": 1281,
-    "name": "kz_slide_isnt_kz_f",
-    "filesize": 59329820,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "2025-04-14T14:37:41",
-    "updated_on": "2025-04-15T16:25:59",
-    "approved_by_steamid64": "76561198165203332",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2425170637",
-    "download_url": ""
-  },
-  {
-    "id": 945,
-    "name": "kz_slide_rawr_xdeee",
-    "filesize": 26681220,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2021-03-04T00:03:35",
-    "updated_on": "2022-07-24T16:44:43",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2190416060",
-    "download_url": null
-  },
-  {
-    "id": 747,
-    "name": "kz_snowcastle_sp",
-    "filesize": 38245116,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2020-03-01T05:39:33",
-    "updated_on": "2020-03-01T05:39:33",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 680,
-    "name": "kz_snowtrain_fix",
-    "filesize": 9727740,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2019-09-19T00:23:55",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 1099,
-    "name": "kz_solace",
-    "filesize": 49980808,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "2022-02-16T18:11:18",
-    "updated_on": "2022-04-04T19:33:00",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2481042621",
-    "download_url": null
-  },
-  {
-    "id": 484,
-    "name": "kz_spores_go",
-    "filesize": 26353596,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "2018-01-09T10:45:49",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "76561198143205331",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=418447771",
-    "download_url": ""
-  },
-  {
-    "id": 1253,
-    "name": "kz_sxb_misato",
-    "filesize": 109173276,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "2023-05-07T16:25:24",
-    "updated_on": "2023-05-07T19:49:30",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2910316537",
-    "download_url": null
-  },
-  {
-    "id": 1016,
-    "name": "kz_timo",
-    "filesize": 199705716,
-    "validated": false,
-    "difficulty": 5,
-    "created_on": "2021-08-02T22:59:49",
-    "updated_on": "2022-06-15T11:52:39",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2446642785",
-    "download_url": null
-  },
-  {
-    "id": 507,
-    "name": "kz_toughluck_v2",
-    "filesize": 6498416,
-    "validated": false,
-    "difficulty": 2,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2018-01-09T10:45:49",
-    "approved_by_steamid64": "0",
-    "workshop_url": "",
-    "download_url": ""
-  },
-  {
-    "id": 1084,
-    "name": "kz_visralzxc_",
-    "filesize": 93990220,
-    "validated": false,
-    "difficulty": 3,
-    "created_on": "2021-11-07T17:59:40",
-    "updated_on": "2022-03-12T19:39:26",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2593394349",
-    "download_url": null
-  },
-  {
-    "id": 589,
-    "name": "skz_makalaka",
-    "filesize": 141398300,
-    "validated": false,
-    "difficulty": 6,
-    "created_on": "0001-01-01T00:00:00",
-    "updated_on": "2025-01-22T18:24:48",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=1340859713",
-    "download_url": ""
-  },
-  {
-    "id": 1179,
-    "name": "vnl_sewage",
-    "filesize": 404856016,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2022-08-06T14:47:48",
-    "updated_on": "2022-10-01T17:42:18",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2269740502",
-    "download_url": null
-  },
-  {
-    "id": 1194,
-    "name": "vnl_sewers",
-    "filesize": 404987104,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2022-10-08T21:04:45",
-    "updated_on": "2025-01-22T18:27:00",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2860451443",
-    "download_url": ""
-  },
-  {
-    "id": 1193,
-    "name": "vnl_sewers_depricated",
-    "filesize": 404987104,
-    "validated": false,
-    "difficulty": 7,
-    "created_on": "2022-10-01T17:39:16",
-    "updated_on": "2022-10-13T20:26:39",
-    "approved_by_steamid64": "76561198201492663",
-    "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=2860451443",
-    "download_url": null
   }
 ]

@@ -149,7 +149,10 @@ async def _(event: Event, args: Message = CommandArg()):
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
         content = '\n' + content
-    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    if img_path and img_path.exists():
+        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    else:
+        combined_message = MessageSegment.text(content)
     await wr.send(combined_message)
 
     # if map_name == 'kz_hb_fafnir':
@@ -181,7 +184,10 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
         content = '\n' + content
-    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    if img_path and img_path.exists():
+        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    else:
+        combined_message = MessageSegment.text(content)
 
     await bot.send(event, combined_message)
 
@@ -242,7 +248,10 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
         content = '\n' + content
-    combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    if img_path and img_path.exists():
+        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+    else:
+        combined_message = MessageSegment.text(content)
 
     await bot.send(event, combined_message)
 
