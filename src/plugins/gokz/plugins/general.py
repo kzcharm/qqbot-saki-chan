@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from textwrap import dedent
+import json
 
 from nonebot import on_command, logger
 from nonebot.adapters.qq import Bot, MessageEvent, Message, MessageSegment
@@ -109,6 +110,10 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     for player in top20:
         if steamid == player["steamid"]:
             return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
+    with Session(engine) as session:
+        rank: Leaderboard = session.get(Leaderboard, steamid)  # NOQA
+        if not rank:
+            return await bind.finish("用户不存在. 你至少上传过一次KZT的记录吗?\n(最近才入坑的玩家绑不上是正常的)")
 
     user_id = event.get_user_id()
     is_binding_code = binding_code_result is not None
@@ -152,6 +157,7 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
         绑定成功!
         {qq_name}
         {user.steamid}
+        请勿绑定他人的账号, 违者可能会被封禁
     """).strip()
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):

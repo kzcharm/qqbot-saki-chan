@@ -8,7 +8,9 @@ class User(SQLModel, table=True):
     qid: str = Field(nullable=False, primary_key=True)
     name: str
     steamid: str = Field(nullable=False)
+    game: str = Field(nullable=False, default="gokz", max_length=20)
     mode: str = Field(nullable=False, default="kz_timer")
+    cs2kz_mode: str = Field(nullable=False, default="classic", max_length=20)
     created_at: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime, default=func.now(), nullable=False))
     updated_at: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False))
 
