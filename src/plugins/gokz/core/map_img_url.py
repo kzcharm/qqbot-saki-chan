@@ -57,3 +57,9 @@ async def get_map_img_url(map_name: str) -> Optional[Path]:
         from nonebot import logger
         logger.error(f"Error downloading map image for {map_name}: {e}")
         raise
+
+
+def get_cs2kz_preferred_map_img_url(map_name: str) -> str:
+    if map_name == "kz_sonder":
+        return f"https://raw.githubusercontent.com/vap222222/nonglobalmaps/main/{map_name}.jpg"
+    return f"https://raw.githubusercontent.com/kzglobalteam/cs2kz-images/public/webp/medium/{map_name}/1.webp"

@@ -36,3 +36,7 @@ def format_cs2kz_mode(mode: str) -> str:
     if mode not in mode_mapping:
         raise ValueError("Invalid CS2KZ mode")
     return mode_mapping[mode]
+
+
+def format_cs2kz_mode_label(mode: str) -> str:
+    return "VNL" if format_cs2kz_mode(mode) == "vanilla" else "CKZ"

@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 from textwrap import dedent
-import json
 
 from nonebot import on_command, logger
 from nonebot.adapters.qq import Bot, MessageEvent, Message, MessageSegment
@@ -10,10 +9,12 @@ from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, select
 
 from src.plugins.gokz.core.kreedz import format_kzmode
+from src.plugins.gokz.core.game import format_cs2kz_mode, format_game, toggle_game
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import decode_binding_code
 from src.plugins.gokz.config import QQ_BOT_SECRET, ENABLE_DIRECT_STEAM_BINDING
 from ..api.helper import fetch_json
+from ..api.cs2kz import fetch_player
 from ..core.command_helper import CommandData
 from ..db.db import engine, create_db_and_tables
 from ..db.models import User, Leaderboard
@@ -23,6 +24,7 @@ create_db_and_tables()
 
 bind = on_command("bind", aliases={"绑定"})
 mode = on_command("mode", aliases={"模式"})
+game = on_command("game", aliases={"游戏"})
 test = on_command("test")
 help_ = on_command('help', aliases={"帮助"})
 info = on_command("info")
@@ -110,10 +112,13 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     for player in top20:
         if steamid == player["steamid"]:
             return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
+    cs2kz_player = None
     with Session(engine) as session:
         rank: Leaderboard = session.get(Leaderboard, steamid)  # NOQA
         if not rank:
-            return await bind.finish("用户不存在. 你至少上传过一次KZT的记录吗?\n(最近才入坑的玩家绑不上是正常的)")
+            cs2kz_player = await fetch_player(steamid)
+            if not cs2kz_player:
+                return await bind.finish("用户不存在. 你至少上传过一次KZT或CS2KZ记录吗?\n(最近才入坑的玩家绑不上是正常的)")
 
     user_id = event.get_user_id()
     is_binding_code = binding_code_result is not None
@@ -121,7 +126,8 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     # Get player name from gokz.top API
     player_url = f'https://api.gokz.top/api/v1/players/{steamid}'
     player_data = await fetch_json(player_url, timeout=10)
-    qq_name = player_data.get("name", "Unknown") if player_data else "Unknown"
+    qq_name = player_data.get("name") if player_data else None
+    qq_name = qq_name or (cs2kz_player or {}).get("name", "Unknown")
 
     with Session(engine) as session:
         # If using binding code, force bind by removing any existing binding
@@ -168,8 +174,10 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
 @mode.handle()
 async def update_mode(event: MessageEvent, args: Message = CommandArg()):
     if mode_ := args.extract_plain_text():
+        with Session(engine) as session:
+            user = session.get(User, event.get_user_id())
         try:
-            mode_ = format_kzmode(mode_)
+            mode_ = format_cs2kz_mode(mode_) if getattr(user, "game", "gokz") == "cs2kz" else format_kzmode(mode_)
         except ValueError:
             return await mode.finish("模式格式不正确")
     else:
@@ -181,9 +189,27 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
         if not user:
             return await mode.finish("你还未绑定steamid")
 
-        user.mode = mode_
+        if user.game == "cs2kz":
+            user.cs2kz_mode = mode_
+        else:
+            user.mode = mode_
         session.add(user)
         session.commit()
         session.refresh(user)
 
     await mode.finish(f"模式已更新为: {mode_}")
+
+
+@game.handle()
+async def update_game(event: MessageEvent, args: Message = CommandArg()):
+    with Session(engine) as session:
+        user = session.get(User, event.get_user_id())
+        if not user:
+            return await game.finish("你还未绑定steamid")
+        try:
+            user.game = format_game(args.extract_plain_text()) if args.extract_plain_text() else toggle_game(user.game)
+        except ValueError:
+            return await game.finish("游戏格式不正确，可选: gokz | cs2kz")
+        session.add(user)
+        session.commit()
+    await game.finish(f"默认游戏已更新为: {user.game}")

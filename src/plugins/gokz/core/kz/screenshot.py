@@ -37,6 +37,11 @@ async def vnl_screenshot_async(steamid, force_update=False):
     return result
 
 
+async def cs2kz_screenshot_async(steamid, force_update=False):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, cs2kz_screenshot, steamid, force_update)
+
+
 def random_card():
     cache_dir: Path = store.get_cache_dir("plugin_name")
     png_files = list(cache_dir.glob("*.png"))
@@ -150,3 +155,33 @@ def vnl_screenshot(steamid: str, force_update: bool = False) -> str:
     cropped.save(cache_file)
     return str(cache_file)
 
+
+def cs2kz_screenshot(steamid: str, force_update: bool = False) -> str:
+    player_id = convert_steamid(steamid, 2)
+    steamid64 = convert_steamid(steamid, 64)
+    cache_file = store.get_cache_file("plugin_name", f"{steamid64}_cs2kz.png")
+    if not force_update:
+        last_modified_date = check_last_modified_date(cache_file)
+        if last_modified_date and datetime.now() - last_modified_date <= timedelta(hours=1):
+            return str(cache_file)
+
+    width, height = 1180, 1000
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument(f"--window-size={width},{height}")
+    driver = webdriver.Chrome(options=options)
+    try:
+        driver.get(f"https://cs2kz.org/profile/{player_id}")
+        WebDriverWait(driver, 45).until(
+            lambda current: current.execute_script(
+                "return document.readyState === 'complete' && document.body.innerText.includes('CKZ')"
+            )
+        )
+        time.sleep(1)
+        screenshot = driver.get_screenshot_as_png()
+    finally:
+        driver.quit()
+    Image.open(BytesIO(screenshot)).save(cache_file)
+    return str(cache_file)
