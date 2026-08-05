@@ -5,6 +5,8 @@ from src.plugins.gokz.core.config import MAP_TIERS
 
 def format_kzmode(mode, form="full") -> int | str:
     """return kz_timer, kz_simple or kz_vanilla in the specified format"""
+    if isinstance(mode, str):
+        mode = mode.lower()
     mode_mapping = {
         "v": ("kz_vanilla", "vnl", 0),
         "vnl": ("kz_vanilla", "vnl", 0),
@@ -44,6 +46,10 @@ def format_kzmode(mode, form="full") -> int | str:
         raise ValueError("Invalid format type")
 
     return formats[form]
+
+
+def format_kzmode_label(mode) -> str:
+    return str(format_kzmode(mode, "m")).upper()
 
 
 def format_runtime(time: float, cn=False) -> str:

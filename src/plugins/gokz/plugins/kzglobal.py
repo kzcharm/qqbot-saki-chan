@@ -11,13 +11,15 @@ from nonebot.permission import SUPERUSER
 
 from ..api.kztimerglobal import fetch_personal_best, fetch_personal_recent, fetch_world_record, fetch_overall_world_record, fetch_personal_bans, \
     update_map_data
+from ..api import cs2kz
 from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
+from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import search_map
-from src.plugins.gokz.core.kz.screenshot import vnl_screenshot_async, kzgoeu_screenshot_async
-from src.plugins.gokz.core.map_img_url import get_map_img_url
+from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
+from src.plugins.gokz.core.map_img_url import get_cs2kz_preferred_map_img_url, get_map_img_url
 from ..config import GOKZ_TOP_API_KEY
 
 pb = on_command('pb', aliases={'personal-best'})
@@ -34,6 +36,16 @@ private_map_names: dict[int, str] = {}  # For private messages
 group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
+
+
+def cs2_record_text(record: dict, pro: bool | None = None) -> str:
+    return dedent(f"""
+        ║ 玩家:　　{record['player']['name']}
+        ║ 用时:　　{format_gruntime(record['time'])}
+        ║ 存点:　　{record['teleports']}
+        ║ 分数:　　{(cs2kz.record_points(record, pro) or 0):.0f}
+        ║ 排名:　　#{cs2kz.record_rank(record, pro) or '-'}
+        ║ 服务器:　{record['server']['name']}""")
 
 
 @update_map_info.handle()
@@ -106,8 +118,23 @@ async def _(event: Event, args: Message = CommandArg()):
 
     if not cd.args:
         return await wr.finish("🗺地图名都不给我怎么帮你查WR (￣^￣) ")
-    else:
-        map_name = search_map(cd.args[0])[0]
+
+    if cd.game == "cs2kz":
+        map_data = await cs2kz.fetch_map(cd.args[0])
+        if not map_data:
+            return await wr.finish("未找到CS2KZ地图")
+        map_name = map_data["name"]
+        course = cs2kz.find_course(map_data, cd.course)
+        tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, max_rank=1, limit=1)
+        pro_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=False, max_rank=1, limit=1)
+        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
+        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
+        content += "\n╠═════PRO记录═════"
+        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
+        content += "\n╚ CS2KZ ═══"
+        return await wr.send(MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
+
+    map_name = search_map(cd.args[0])[0]
 
     kz_mode = cd.mode
 
@@ -167,6 +194,19 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
             return await pr.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pr.finish(cd.error)
 
+    if cd.game == "cs2kz":
+        records = await cs2kz.fetch_records(player=cd.steamid, mode=cd.mode, limit=1)
+        if not records:
+            return await pr.finish("未找到CS2KZ最近记录")
+        data = records[0]
+        content = dedent(f"""
+            ╔ 地图:　　{data['map']['name']}
+            ║ 关卡:　　{data['course']['name']}
+            ║ 模式:　　{format_cs2kz_mode_label(cd.mode)}
+            {cs2_record_text(data)}
+            ╚ CS2KZ ═══""").strip()
+        return await bot.send(event, MessageSegment.image(get_cs2kz_preferred_map_img_url(data['map']['name'])) + MessageSegment.text(content))
+
     data = await fetch_personal_recent(cd.steamid, cd.mode)
 
     content = dedent(f"""
@@ -202,8 +242,23 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
 
     if not cd.args:
         return await wr.finish("🗺地图名都不给我怎么帮你查PB (￣^￣) ")
-    else:
-        map_name = search_map(cd.args[0])[0]
+
+    if cd.game == "cs2kz":
+        map_data = await cs2kz.fetch_map(cd.args[0])
+        if not map_data:
+            return await pb.finish("未找到CS2KZ地图")
+        map_name = map_data["name"]
+        course = cs2kz.find_course(map_data, cd.course)
+        tp_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, limit=1)
+        pro_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, has_teleports=False, limit=1)
+        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
+        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
+        content += "\n╠═════PRO记录═════"
+        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
+        content += "\n╚ CS2KZ ═══"
+        return await bot.send(event, MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
+
+    map_name = search_map(cd.args[0])[0]
 
     content = dedent(f"""
         ╔ 地图:　{map_name}
@@ -263,6 +318,21 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
         if cd.error_image and cd.error_image.exists():
             return await rank.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await rank.finish(cd.error)
+
+    if cd.game == "cs2kz":
+        player = await cs2kz.fetch_player(cd.steamid)
+        if not player:
+            return await rank.finish("未找到CS2KZ玩家")
+        content = dedent(f"""
+            ╔════════════
+            ║ 玩家:　　　{player['name']}
+            ║ SteamID:　 {player['id']}
+            ║ 游戏:　　　CS2KZ
+            ║ Rating CKZ: {player.get('ckz_rating', 0):.0f}
+            ║ Rating VNL: {player.get('vnl_rating', 0):.0f}
+            ║ Prime:　　 {'已验证' if player.get('is_prime_verified') else '未验证'}
+            ╚════════════""").strip()
+        return await rank.finish(content)
 
     BASE_URL = "https://api.gokz.top/api/v1"
     leaderboard_url = f"{BASE_URL}/leaderboards/{cd.steamid}"
@@ -772,7 +842,15 @@ async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
             return await bot.send(event, MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await bot.send(event, cd.error)
 
-    if cd.mode == "kz_vanilla":
+    if cd.game == "cs2kz":
+        await bot.send(event, "客服小祥正在为您: 生成CS2KZ资料页图片...")
+        try:
+            url = await cs2kz_screenshot_async(cd.steamid, force_update=cd.update)
+        except Exception as exc:
+            profile_url = f"https://cs2kz.org/profile/{cs2kz.cs2kz_player_id(cd.steamid)}"
+            logger.warning(f"CS2KZ screenshot failed for {cd.steamid}: {exc!r}")
+            return await bot.send(event, f"CS2KZ资料页截图生成失败，可直接查看:\n{profile_url}")
+    elif cd.mode == "kz_vanilla":
         await bot.send(event, "客服小祥正在为您: 生成vnl-kz图片...")
         url = await vnl_screenshot_async(cd.steamid, force_update=cd.update)
     else:
