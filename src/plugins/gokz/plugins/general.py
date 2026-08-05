@@ -63,6 +63,8 @@ async def _():
 
 @bind.handle()
 async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
+    return await bind.finish("绑定功能暂时维护中，请稍后再试。")
+
     input_text = args.extract_plain_text()
     image_path = Path('data/img/binding.png')
     
