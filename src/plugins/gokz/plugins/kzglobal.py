@@ -125,12 +125,12 @@ async def _(event: Event, args: Message = CommandArg()):
             return await wr.finish("未找到CS2KZ地图")
         map_name = map_data["name"]
         course = cs2kz.find_course(map_data, cd.course)
-        tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=True, max_rank=1, limit=1)
+        tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, max_rank=1, limit=1)
         pro_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=False, max_rank=1, limit=1)
-        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════存点记录═════"
-        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现存点记录"
-        content += "\n╠═════裸跳记录═════"
-        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现裸跳记录"
+        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
+        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
+        content += "\n╠═════PRO记录═════"
+        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
         content += "\n╚ CS2KZ ═══"
         return await wr.send(MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
 
@@ -249,12 +249,12 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
             return await pb.finish("未找到CS2KZ地图")
         map_name = map_data["name"]
         course = cs2kz.find_course(map_data, cd.course)
-        tp_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, has_teleports=True, limit=1)
+        tp_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, limit=1)
         pro_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, has_teleports=False, limit=1)
-        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════存点记录═════"
-        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现存点记录"
-        content += "\n╠═════裸跳记录═════"
-        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现裸跳记录"
+        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
+        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
+        content += "\n╠═════PRO记录═════"
+        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
         content += "\n╚ CS2KZ ═══"
         return await bot.send(event, MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
 
