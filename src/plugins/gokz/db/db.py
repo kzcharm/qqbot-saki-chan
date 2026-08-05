@@ -9,10 +9,6 @@ load_dotenv()
 
 
 def get_url():
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        return database_url
-
     user = os.getenv("MYSQL_USER", "root")
     password = urllib.parse.quote_plus(os.getenv("MYSQL_PASSWORD", ""))
     server = os.getenv("MYSQL_SERVER", "localhost")
