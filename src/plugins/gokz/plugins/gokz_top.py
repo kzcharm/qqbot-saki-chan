@@ -9,7 +9,6 @@ from nonebot.permission import SUPERUSER
 from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.formatter import format_gruntime, diff_seconds_to_time, record_format_time
 from src.plugins.gokz.core.kreedz import search_map
-from src.plugins.gokz.core.kz.records import count_servers
 from ..api.dataclasses import LeaderboardData
 from ..api.helper import fetch_json
 from nonebot.adapters.qq import MessageSegment
@@ -62,49 +61,65 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
             return await ccf.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await ccf.finish(cd.error)
 
-    url = f'{BASE}records/top/{cd.steamid}?mode={cd.mode}'
-    if cd.args:
-        if cd.args[0] == 'all':
-            url = f'{BASE}records/{cd.steamid}?mode={cd.mode}'
+    preset_aliases = {
+        'all': 'all',
+        'pb': 'pb',
+        'top': 'pb',
+        'last_year': 'last_year',
+        'year': 'last_year',
+        'last_100_hours': 'last_100_hours',
+        '100h': 'last_100_hours',
+    }
+    preset_names = {
+        'all': '全部记录',
+        'pb': '仅PB记录',
+        'last_year': '最近一年',
+        'last_100_hours': '最近100小时',
+    }
 
-    records = await fetch_json(url)
-    
-    # If gokz.top API fails, try kztimerglobal as fallback
+    preset = 'all'
+    if cd.args:
+        preset = preset_aliases.get(cd.args[0].lower())
+        if preset is None:
+            return await ccf.finish("可选统计范围: all | pb | last_year | last_100_hours")
+
+    url = f"{BASE}api/v1/players/{cd.steamid}/playtime-by-server"
+    records = await fetch_json(url, params={'preset': preset})
+
     if records is None:
-        logger.info(f"gokz.top API unavailable, trying kztimerglobal fallback for {cd.steamid}")
-        try:
-            from ..api.kztimerglobal import fetch_global_stats
-            mode_str = cd.mode
-            records = await fetch_global_stats(cd.steamid, mode_str, has_tp=True)
-            # Convert kztimerglobal format to match expected format
-            if records:
-                for record in records:
-                    record['server_name'] = record.get('server_name', '未知服务器')
-                    record['player_name'] = record.get('player_name', '未知玩家')
-                    record['steam_id'] = record.get('steam_id', cd.steamid)
-        except Exception as e:
-            logger.error(f"Fallback to kztimerglobal also failed: {e}")
-            return await ccf.finish("API服务暂时不可用，请稍后再试。")
-    
-    if not records:
-        return await ccf.finish("未找到该玩家的记录。")
-    
+        return await ccf.finish("API服务暂时不可用，请稍后再试。")
+
+    if isinstance(records, dict) and records.get('detail'):
+        detail = records.get('detail')
+        if isinstance(detail, list) and detail:
+            detail = detail[0].get('msg', '请求参数错误')
+        return await ccf.finish(str(detail))
+
     try:
-        data = count_servers(records, limit=10)
+        groups = records.get('groups', []) if isinstance(records, dict) else []
+        if not groups:
+            return await ccf.finish("未找到该玩家的游玩记录。")
+
+        total_hours = float(records.get('total_playtime_hours', 0))
+        current_preset = records.get('preset', preset)
+        current_preset_name = preset_names.get(current_preset, current_preset)
         content = dedent(f"""
             ════成分查询════
-            玩家:　　{records[0].get('player_name', '未知')}
-            steamid: {records[0].get('steam_id', cd.steamid)}
-            模式:　　{cd.mode}
+            steamid: {records.get('steamid64', cd.steamid)}
+            范围:　　{current_preset_name}
+            总时长:　{total_hours:.2f}h
             ════════════
         """).strip() + '\n'
-        for idx, server in enumerate(data):
-            content += f"{idx+1}. {server['server']} | {server['count']}次 | ({server['per']}%)\n"
+        for idx, group in enumerate(groups[:10]):
+            group_name = group.get('group_name', '未知服务器组')
+            playtime_hours = float(group.get('playtime_hours', 0))
+            percentage = float(group.get('percentage', 0))
+            content += f"{idx+1}. {group_name} | {playtime_hours:.2f}h | ({percentage:.2f}%)\n"
         # Add newline at start for group messages (bot will @ user automatically)
         if getattr(event, 'group_id', None):
             content = '\n' + content
         return await ccf.finish(content)
-    except (KeyError, IndexError, TypeError) as e:
+    except (KeyError, IndexError, TypeError, ValueError) as e:
         logger.error(f"Error processing records data: {e}")
         return await ccf.finish("解析数据失败，请稍后再试。")
 
