@@ -38,6 +38,15 @@ class CS2KZTest(unittest.TestCase):
         self.assertEqual(self.cs2kz.record_points(record, True), 4.5)
         self.assertEqual(self.cs2kz.record_rank(record, True), 7)
 
+    def test_v1_leaderboard_schema(self):
+        leaderboard = load_module("leaderboard_data", ROOT / "src/plugins/gokz/api/dataclasses.py")
+        data = leaderboard.LeaderboardData.from_dict({
+            "rank": 12, "player": {"steamid64": "76561199022242128", "display_name": "Cinyan10"},
+            "rating": 7.82, "points": 592443, "records_900_plus": 10, "records_800_plus": 415,
+            "unique_map_finishes": 585, "wrs_nub": 1, "wrs_pro": 2,
+        })
+        self.assertEqual((data.name, data.rank, data.count_tp, data.count_pro), ("Cinyan10", 12, 1, 2))
+
 
 if __name__ == "__main__":
     unittest.main()
