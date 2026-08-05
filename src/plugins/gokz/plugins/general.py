@@ -14,10 +14,9 @@ from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import decode_binding_code
 from src.plugins.gokz.config import QQ_BOT_SECRET, ENABLE_DIRECT_STEAM_BINDING
 from ..api.helper import fetch_json
-from ..api.cs2kz import fetch_player
 from ..core.command_helper import CommandData
 from ..db.db import engine, create_db_and_tables
-from ..db.models import User, Leaderboard
+from ..db.models import User
 
 create_db_and_tables()
 
@@ -112,22 +111,15 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     for player in top20:
         if steamid == player["steamid"]:
             return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
-    cs2kz_player = None
-    with Session(engine) as session:
-        rank: Leaderboard = session.get(Leaderboard, steamid)  # NOQA
-        if not rank:
-            cs2kz_player = await fetch_player(steamid)
-            if not cs2kz_player:
-                return await bind.finish("用户不存在. 你至少上传过一次KZT或CS2KZ记录吗?\n(最近才入坑的玩家绑不上是正常的)")
+    # Validate the player and use the GOKZ profile name for the binding.
+    player_url = f'https://api.gokz.top/api/v1/players/{steamid}'
+    player_data = await fetch_json(player_url, timeout=10)
+    qq_name = player_data.get("name") if isinstance(player_data, dict) else None
+    if not qq_name:
+        return await bind.finish("用户不存在. 你至少上传过一次GOKZ记录吗?\n(最近才入坑的玩家绑不上是正常的)")
 
     user_id = event.get_user_id()
     is_binding_code = binding_code_result is not None
-    
-    # Get player name from gokz.top API
-    player_url = f'https://api.gokz.top/api/v1/players/{steamid}'
-    player_data = await fetch_json(player_url, timeout=10)
-    qq_name = player_data.get("name") if player_data else None
-    qq_name = qq_name or (cs2kz_player or {}).get("name", "Unknown")
 
     with Session(engine) as session:
         # If using binding code, force bind by removing any existing binding
