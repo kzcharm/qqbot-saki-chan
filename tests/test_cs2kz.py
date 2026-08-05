@@ -1,4 +1,5 @@
 import importlib.util
+import asyncio
 import sys
 import types
 import unittest
@@ -37,6 +38,21 @@ class CS2KZTest(unittest.TestCase):
         self.assertEqual(self.cs2kz.record_rank(record), 3)
         self.assertEqual(self.cs2kz.record_points(record, True), 4.5)
         self.assertEqual(self.cs2kz.record_rank(record, True), 7)
+
+    def test_fetch_global_rank(self):
+        pages = {
+            0: {"total": 2, "values": [{"id": "other", "ckz_rating": 100}, {"id": "target", "ckz_rating": 90}]},
+        }
+        original = self.cs2kz.fetch_json
+
+        async def fetch_json(*urls, params=None):
+            return pages[params["offset"] // 1000]
+
+        self.cs2kz.fetch_json = fetch_json
+        try:
+            self.assertEqual(asyncio.run(self.cs2kz.fetch_global_rank("target", 90, "classic")), 2)
+        finally:
+            self.cs2kz.fetch_json = original
 
     def test_v1_leaderboard_schema(self):
         leaderboard = load_module("leaderboard_data", ROOT / "src/plugins/gokz/api/dataclasses.py")

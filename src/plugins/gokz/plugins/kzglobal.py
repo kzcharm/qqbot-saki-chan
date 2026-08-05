@@ -1,3 +1,4 @@
+import asyncio
 import math
 from datetime import datetime
 from pathlib import Path
@@ -343,13 +344,19 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
         player = await cs2kz.fetch_player(cd.steamid)
         if not player:
             return await rank.finish("未找到CS2KZ玩家")
+        rank_ckz, rank_vnl = await asyncio.gather(
+            cs2kz.fetch_global_rank(player["id"], player.get("ckz_rating", 0), "classic"),
+            cs2kz.fetch_global_rank(player["id"], player.get("vnl_rating", 0), "vanilla"),
+        )
         content = dedent(f"""
             ╔════════════
             ║ 玩家:　　　{player['name']}
             ║ SteamID:　 {player['id']}
             ║ 游戏:　　　CS2KZ
             ║ Rating CKZ: {player.get('ckz_rating', 0):.0f}
+            ║ Rank CKZ:　{f'#{rank_ckz}' if rank_ckz is not None else '-'}
             ║ Rating VNL: {player.get('vnl_rating', 0):.0f}
+            ║ Rank VNL:　{f'#{rank_vnl}' if rank_vnl is not None else '-'}
             ║ Prime:　　 {'已验证' if player.get('is_prime_verified') else '未验证'}
             ╚════════════""").strip()
         return await rank.finish(content)

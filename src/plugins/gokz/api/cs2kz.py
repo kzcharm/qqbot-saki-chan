@@ -38,6 +38,54 @@ async def fetch_player(player: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) and data.get("id") else None
 
 
+async def fetch_global_rank(player: str, rating: float, mode: str) -> int | None:
+    """Find a player's position in the API's rating-sorted player list."""
+    sort_by = "ckz-rating" if format_cs2kz_mode(mode) == "classic" else "vnl-rating"
+    page_size = 1000
+
+    async def fetch_page(page: int) -> dict[str, Any] | None:
+        data = await fetch_json(
+            f"{CS2KZ_API_URL}/players",
+            params={"sort_by": sort_by, "limit": page_size, "offset": page * page_size},
+        )
+        return data if isinstance(data, dict) and isinstance(data.get("values"), list) else None
+
+    first = await fetch_page(0)
+    if not first:
+        return None
+    total = int(first.get("total") or 0)
+    last_page = max(0, (total - 1) // page_size)
+    low, high = 0, last_page
+    while low <= high:
+        page = (low + high) // 2
+        data = first if page == 0 else await fetch_page(page)
+        if not data:
+            return None
+        values = data["values"]
+        for index, item in enumerate(values):
+            if item.get("id") == player:
+                return page * page_size + index + 1
+        if not values:
+            return None
+        first_rating = float(values[0].get("ckz_rating" if sort_by == "ckz-rating" else "vnl_rating") or 0)
+        last_rating = float(values[-1].get("ckz_rating" if sort_by == "ckz-rating" else "vnl_rating") or 0)
+        if rating > first_rating:
+            high = page - 1
+        elif rating < last_rating:
+            low = page + 1
+        else:
+            # Equal ratings can span page boundaries; inspect neighboring pages.
+            for neighbor in (page - 1, page + 1):
+                if 0 <= neighbor <= last_page:
+                    neighbor_data = await fetch_page(neighbor)
+                    if neighbor_data:
+                        for index, item in enumerate(neighbor_data["values"]):
+                            if item.get("id") == player:
+                                return neighbor * page_size + index + 1
+            return None
+    return None
+
+
 async def search_players(name: str, limit: int = 10) -> list[dict[str, Any]]:
     data = await fetch_json(f"{CS2KZ_API_URL}/players", params={"name": name, "limit": limit})
     return data.get("values", []) if isinstance(data, dict) else []
