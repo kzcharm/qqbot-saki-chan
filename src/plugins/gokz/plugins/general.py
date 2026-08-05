@@ -46,7 +46,7 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
         steamID:      {convert_steamid(cd.steamid, 2)}
         steamID32:  {convert_steamid(cd.steamid, 32)}
         steamID64:  {convert_steamid(cd.steamid, 64)}
-        默认模式:      {format_kzmode(cd.mode, form='m').upper()}
+        默认模式:      {format_cs2kz_mode_label(cd.mode) if cd.game == "cs2kz" else format_kzmode(cd.mode, form='m').upper()}
         QID: {cd.qid}
     """).strip()
     # Add newline at start for group messages (bot will @ user automatically)
@@ -206,9 +206,10 @@ async def update_game(event: MessageEvent, args: Message = CommandArg()):
         if not user:
             return await game.finish("你还未绑定steamid")
         try:
-            user.game = format_game(args.extract_plain_text()) if args.extract_plain_text() else toggle_game(user.game)
+            selected_game = format_game(args.extract_plain_text()) if args.extract_plain_text() else toggle_game(user.game)
         except ValueError:
             return await game.finish("游戏格式不正确，可选: gokz | cs2kz")
+        user.game = selected_game
         session.add(user)
         session.commit()
-    await game.finish(f"默认游戏已更新为: {user.game}")
+    await game.finish(f"默认游戏已更新为: {selected_game}")
