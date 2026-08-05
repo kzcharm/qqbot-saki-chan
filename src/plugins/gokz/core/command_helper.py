@@ -83,7 +83,7 @@ class CommandData:
                 return
         else:
             try:
-                self.mode = format_kzmode(parsed_args.get('mode', user.mode)) if parsed_args.get('mode') else user.mode
+                self.mode = format_kzmode(parsed_args.get('mode', user.mode))
             except ValueError:
                 self.error = "模式格式不正确"
                 return

@@ -9,7 +9,7 @@ from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, select
 
 from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.game import format_cs2kz_mode, format_game, toggle_game
+from src.plugins.gokz.core.game import format_cs2kz_mode, format_cs2kz_mode_label, format_game, toggle_game
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import decode_binding_code
 from src.plugins.gokz.config import QQ_BOT_SECRET, ENABLE_DIRECT_STEAM_BINDING
@@ -165,15 +165,20 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
 
 @mode.handle()
 async def update_mode(event: MessageEvent, args: Message = CommandArg()):
-    if mode_ := args.extract_plain_text():
-        with Session(engine) as session:
-            user = session.get(User, event.get_user_id())
-        try:
-            mode_ = format_cs2kz_mode(mode_) if getattr(user, "game", "gokz") == "cs2kz" else format_kzmode(mode_)
-        except ValueError:
-            return await mode.finish("模式格式不正确")
-    else:
-        return await mode.finish("你模式都不给我我怎么帮你改ヽ(ー_ー)ノ")
+    mode_ = args.extract_plain_text()
+    with Session(engine) as session:
+        user = session.get(User, event.get_user_id())
+    if not user:
+        return await mode.finish("你还未绑定steamid")
+
+    if not mode_:
+        current = format_cs2kz_mode_label(user.cs2kz_mode) if user.game == "cs2kz" else format_kzmode(user.mode, "m").upper()
+        return await mode.finish(f"当前模式为: {current}")
+
+    try:
+        mode_ = format_cs2kz_mode_label(mode_) if getattr(user, "game", "gokz") == "cs2kz" else format_kzmode(mode_, "m").upper()
+    except ValueError:
+        return await mode.finish("模式格式不正确")
 
     qid = event.get_user_id()
     with Session(engine) as session:
