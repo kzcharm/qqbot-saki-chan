@@ -1,0 +1,10 @@
+services:
+  qqbot:
+    build: .
+    image: ${IMAGE_REPO:-ghcr.io/kzcharm/qqbot-saki-chan}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file:
+      - .env.deploy
+    volumes:
+      - ${QQBOT_DATA_DIR:-/opt/qqbot-saki-chan/data}/qqbot.sqlite3:/app/data/qqbot.sqlite3
+

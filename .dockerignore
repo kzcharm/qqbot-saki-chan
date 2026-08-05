@@ -1,0 +1,10 @@
+.git
+.github
+.venv
+__pycache__
+*.py[cod]
+.env*
+data/qqbot.sqlite3*
+error*.log
+.DS_Store
+
