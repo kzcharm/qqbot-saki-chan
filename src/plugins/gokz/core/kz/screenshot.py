@@ -52,7 +52,7 @@ def random_card():
 
 
 def kzgoeu_screenshot(steamid, kz_mode, force_update=False):
-    steamid = convert_steamid(steamid)
+    steamid = convert_steamid(steamid, 2)
     kz_mode = format_kzmode(kz_mode, 'm')
 
     steamid64 = convert_steamid(steamid, 64)

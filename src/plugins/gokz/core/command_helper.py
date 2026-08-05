@@ -45,6 +45,14 @@ class CommandData:
                 print(self.error)
                 return
 
+            # SteamID64 is the bot's internal representation. Normalize older
+            # rows that were stored as Steam2 IDs when they are read.
+            stored_steamid = user.steamid
+            user.steamid = convert_steamid(stored_steamid, 64)
+            if user.steamid != stored_steamid:
+                session.add(user)
+                session.commit()
+
             qid = parsed_args.get('qid')
             if not qid:
                 at_msg = event.get_message().copy()
@@ -57,11 +65,13 @@ class CommandData:
                 user2 = session.get(User, qid)
                 if not user2 or not user2.steamid:
                     self.error = "你指定的用户未绑定steamid"
-                self.steamid = user2.steamid
+                    return
+                self.steamid = convert_steamid(user2.steamid, 64)
                 self.steamid2 = user.steamid
             else:
-                self.steamid = parsed_args.get('steamid') if parsed_args.get('steamid') else user.steamid
-                self.steamid2 = user.steamid if parsed_args.get('steamid') else None
+                requested_steamid = parsed_args.get('steamid')
+                self.steamid = convert_steamid(requested_steamid, 64) if requested_steamid else user.steamid
+                self.steamid2 = user.steamid if requested_steamid else None
 
         self.game = parsed_args.get('game') or getattr(user, "game", "gokz")
         if self.game == "cs2kz":
@@ -128,12 +138,15 @@ def parse_args(text: str) -> dict:
         
         parsed_args = parser.parse_args(args)
 
+        if parsed_args.steamid:
+            parsed_args.steamid = convert_steamid(parsed_args.steamid, 64)
+
         # Search for steamid64 or steamid in the positional arguments
         for arg in parsed_args.args:
-            if steamid64_pattern.match(arg):
-                parsed_args.steamid = arg  # Treat as steamid64
+            if steamid64_pattern.fullmatch(arg):
+                parsed_args.steamid = convert_steamid(arg, 64)
                 break
-            elif steamid_pattern.match(arg):
+            elif steamid_pattern.fullmatch(arg):
                 parsed_args.steamid = convert_steamid(arg, 64)  # Convert to steamid64
                 break
 

@@ -96,7 +96,7 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     # If binding code failed and direct binding is enabled, try direct SteamID
     if not steamid and ENABLE_DIRECT_STEAM_BINDING:
         try:
-            steamid = convert_steamid(input_text)
+            steamid = convert_steamid(input_text, 64)
         except ValueError:
             if image_path.exists():
                 return await bind.finish(MessageSegment.file_image(image_path) + MessageSegment.text("Steamid格式不正确"))
@@ -109,7 +109,7 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     # 阻止他们绑定前20玩家的steamid
     top20 = json.load(open("data/gokz/json/top20_players.json"))
     for player in top20:
-        if steamid == player["steamid"]:
+        if steamid == convert_steamid(player.get("steamid64") or player["steamid"], 64):
             return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
     # Validate the player and use the GOKZ profile name for the binding.
     player_url = f'https://api.gokz.top/v1/players/{steamid}'

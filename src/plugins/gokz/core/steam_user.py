@@ -9,7 +9,7 @@ from nonebot import logger
 from src.plugins.gokz.config import STEAM_API_KEY
 
 
-def convert_steamid(steamid, target_type: int | str = 2, url=False):
+def convert_steamid(steamid, target_type: int | str = 64, url=False):
     logger.debug(f"Converting SteamID: {steamid} to type: {target_type}")
     steamid = SteamID(steamid)
     if steamid.is_valid() is False:
@@ -30,12 +30,12 @@ def convert_steamid(steamid, target_type: int | str = 2, url=False):
     if target_type == 32:
         return steamid.as_32
     if target_type == 64:
-        return steamid.as_64
+        return str(steamid.as_64)
     if target_type == 0:
         return {
             "steam2": steamid.as_steam2,
             "steam3": steamid.as_steam3,
-            "steam64": steamid.as_64,
+            "steam64": str(steamid.as_64),
             "steam32": steamid.as_32,
             "url": steamid.community_url,
         }
@@ -51,19 +51,19 @@ async def retrieve_steamid(steamid_or_url) -> str | None:
             steam64 = steamid_or_url.split("/profiles/")[-1]
             steamid = SteamID(steam64)
             if steamid.is_valid():
-                return steamid.as_steam2
+                return str(steamid.as_64)
             else:
                 return None
 
         elif "/id/" in steamid_or_url:
             steamid = from_url(steamid_or_url)
-            return steamid.as_steam2
+            return str(steamid.as_64) if steamid and steamid.is_valid() else None
 
         else:
             return None
 
     else:
-        return convert_steamid(steamid_or_url)
+        return convert_steamid(steamid_or_url, 64)
 
 
 async def check_steam_bans(steamid) -> dict | None:
