@@ -55,7 +55,7 @@ async def fetch_json(*urls, params=None, timeout=15, headers=None):
             return tuple(responses)
 
 
-async def put_json(url, params=None, timeout=15, headers=None):
+async def put_json(url, json_data=None, params=None, timeout=15, headers=None):
     """
     Send PUT request to URL with error handling.
     
@@ -71,7 +71,7 @@ async def put_json(url, params=None, timeout=15, headers=None):
     """
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
-            async with session.put(url, params=params, headers=headers) as response:
+            async with session.put(url, json=json_data, params=params, headers=headers) as response:
                 if response.status == 200:
                     return await response.json()
                 else:

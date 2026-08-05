@@ -15,11 +15,10 @@ from src.plugins.gokz.core.kreedz import search_map
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from ..api import cs2kz
-from ..api.dataclasses import LeaderboardData
 from ..api.helper import fetch_json
 from nonebot.adapters.qq import MessageSegment
 
-BASE = "https://api.gokz.top/"
+BASE = "https://api.gokz.top/v1"
 
 progress = on_command('mp', aliases={'progress', '进度'})
 ccf = on_command('ccf', aliases={'查成分'})
@@ -46,7 +45,7 @@ async def find_handle(event: Event, args: Message = CommandArg()):
                 for player in players
             ) or "未找到该玩家"
             return await find.finish(content)
-        players_data = await fetch_json(f"https://api.gokz.top/leaderboard/search/{name}?mode=kz_timer")
+        players_data = await fetch_json(f"{BASE}/players/search", params={"q": name, "limit": 10})
         
         if players_data is None:
             return await find.finish("gokz-top API服务暂时不可用，请稍后再试。")
@@ -56,7 +55,7 @@ async def find_handle(event: Event, args: Message = CommandArg()):
             return await find.finish(players_data.get('detail'))
         
         try:
-            players = [LeaderboardData.from_dict(player) for player in players_data]
+            players = players_data.get("data", [])
         except (KeyError, TypeError, AttributeError) as e:
             logger.error(f"Error parsing player data: {e}")
             return await find.finish("解析数据失败，请稍后再试。")
@@ -65,7 +64,7 @@ async def find_handle(event: Event, args: Message = CommandArg()):
         if not players:
             content += "未找到该玩家"
         for player in players:
-            content += f"{player.name} | {player.steamid} | {player.total_points//10000}w分\n"
+            content += f"{player.get('alias') or player['name']} | {player['steamid64']}\n"
         # Add newline at start for group messages (bot will @ user automatically)
         if getattr(event, 'group_id', None):
             content = '\n' + content
@@ -113,8 +112,8 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
         if preset is None:
             return await ccf.finish("可选统计范围: all | pb | last_year | last_100_hours")
 
-    url = f"{BASE}api/v1/players/{cd.steamid}/playtime-by-server"
-    records = await fetch_json(url, params={'preset': preset})
+    url = f"{BASE}/players/{cd.steamid}/stats"
+    records = await fetch_json(url)
 
     if records is None:
         return await ccf.finish("API服务暂时不可用，请稍后再试。")
@@ -126,13 +125,14 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
         return await ccf.finish(str(detail))
 
     try:
-        groups = records.get('groups', []) if isinstance(records, dict) else []
+        most_played = records.get('most_played_server', {}) if isinstance(records, dict) else {}
+        periods = most_played.get('all_time', {}) if isinstance(most_played, dict) else {}
+        groups = periods.get('entries', []) if isinstance(periods, dict) else []
         if not groups:
             return await ccf.finish("未找到该玩家的游玩记录。")
 
-        total_hours = float(records.get('total_playtime_hours', 0))
-        current_preset = records.get('preset', preset)
-        current_preset_name = preset_names.get(current_preset, current_preset)
+        total_hours = float(periods.get('total_seconds', 0)) / 3600
+        current_preset_name = preset_names[preset]
         content = dedent(f"""
             ════成分查询════
             steamid: {records.get('steamid64', cd.steamid)}
@@ -141,9 +141,9 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
             ════════════
         """).strip() + '\n'
         for idx, group in enumerate(groups[:10]):
-            group_name = group.get('group_name', '未知服务器组')
-            playtime_hours = float(group.get('playtime_hours', 0))
-            percentage = float(group.get('percentage', 0))
+            group_name = group.get('label', '未知服务器组')
+            playtime_hours = float(group.get('total_seconds', 0)) / 3600
+            percentage = playtime_hours / total_hours * 100 if total_hours else 0
             content += f"{idx+1}. {group_name} | {playtime_hours:.2f}h | ({percentage:.2f}%)\n"
         # Add newline at start for group messages (bot will @ user automatically)
         if getattr(event, 'group_id', None):
@@ -184,10 +184,10 @@ async def map_progress(event: Event, args: Message = CommandArg()):
 
     map_name = search_map(cd.args[0])[0]
 
-    query_url = (
-        f"https://api.gokz.top/records/{cd.steamid}?mode={cd.mode}&map_name={map_name}"
+    data = await fetch_json(
+        f"{BASE}/records",
+        params={"steamid64": cd.steamid, "scope": format_kzmode(cd.mode, 'm').upper(), "map_name": map_name, "limit": 10000},
     )
-    data = await fetch_json(query_url)
 
     # If gokz.top API fails, try kztimerglobal as fallback (limited functionality)
     if data is None:
@@ -237,6 +237,10 @@ async def map_progress(event: Event, args: Message = CommandArg()):
     if not data:
         return await progress.finish(f"你尚未完成过{map_name}")
 
+    data = data.get("data", []) if isinstance(data, dict) else []
+    if not data:
+        return await progress.finish(f"你尚未完成过{map_name}")
+
     try:
         data.sort(key=lambda x: x['created_on'])
         records = []
@@ -256,7 +260,7 @@ async def map_progress(event: Event, args: Message = CommandArg()):
         tp_records = [record for record in records if record['teleports'] > 0]
         pro_records = [record for record in records if record['teleports'] == 0]
 
-        content = f"玩家: {data[0]['player_name']}\n在地图: {data[0]['map_name']}\n模式: {data[0]['mode']} 的进度\n"
+        content = f"玩家: {data[0]['player']['display_name']}\n在地图: {data[0]['map_name']}\n模式: {data[0]['mode']} 的进度\n"
 
         def generate_content(records_, completions_, title):
             content_ = f"====={title}=====\n"

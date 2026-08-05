@@ -112,7 +112,7 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
         if steamid == player["steamid"]:
             return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
     # Validate the player and use the GOKZ profile name for the binding.
-    player_url = f'https://api.gokz.top/api/v1/players/{steamid}'
+    player_url = f'https://api.gokz.top/v1/players/{steamid}'
     player_data = await fetch_json(player_url, timeout=10)
     qq_name = player_data.get("name") if isinstance(player_data, dict) else None
     if not qq_name:

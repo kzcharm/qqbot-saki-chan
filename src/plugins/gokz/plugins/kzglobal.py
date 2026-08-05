@@ -17,7 +17,7 @@ from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
-from src.plugins.gokz.core.kreedz import search_map
+from src.plugins.gokz.core.kreedz import format_kzmode, search_map
 from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
 from src.plugins.gokz.core.map_img_url import get_cs2kz_preferred_map_img_url, get_map_img_url
 from ..config import GOKZ_TOP_API_KEY
@@ -36,6 +36,26 @@ private_map_names: dict[int, str] = {}  # For private messages
 group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
+GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+
+
+def normalize_leaderboard_rank(data: dict) -> dict:
+    """Adapt the documented v1 rank response to the existing command formatter."""
+    player = data.get("player", {})
+    return {
+        **data,
+        "steamid64": player.get("steamid64"),
+        "mode": data.get("scope"),
+        "region_code": data.get("region"),
+        "regional_rank": data.get("rank_regional"),
+        "rating": data.get("rating") or 0,
+        "maps_easy_rating": data.get("rating_easy") or 0,
+        "maps_hard_rating": data.get("rating_hard") or 0,
+        "overall_wrs": data.get("wrs_nub") or 0,
+        "pro_wrs": data.get("wrs_pro") or 0,
+        "map_finished": data.get("unique_map_finishes") or 0,
+        "last_updated": "N/A",
+    }
 
 
 def cs2_record_text(record: dict, pro: bool | None = None) -> str:
@@ -334,14 +354,11 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
             ╚════════════""").strip()
         return await rank.finish(content)
 
-    BASE_URL = "https://api.gokz.top/api/v1"
-    leaderboard_url = f"{BASE_URL}/leaderboards/{cd.steamid}"
-    player_url = f"{BASE_URL}/players/{cd.steamid}"
+    leaderboard_url = f"{GOKZ_TOP_V1}/leaderboards/players/{cd.steamid}"
+    player_url = f"{GOKZ_TOP_V1}/players/{cd.steamid}"
     
-    # Prepare headers with API key if available
+    # Player and leaderboard reads are public v1 endpoints.
     headers = {}
-    if GOKZ_TOP_API_KEY:
-        headers["Authorization"] = f"Bearer {GOKZ_TOP_API_KEY}"
     
     # Fetch player info to get name/alias (silently ignore errors)
     player_name = 'N/A'
@@ -356,19 +373,21 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
     
     # If update flag is set, use PUT request with kz_timer format
     if cd.update:
-        # PUT uses mode=kz_timer format
-        params = {"mode": cd.mode}
-        rank_data = await put_json(leaderboard_url, params=params, timeout=30, headers=headers)
-        if rank_data is None:
+        update_data = await put_json(leaderboard_url, timeout=30, headers=headers)
+        if update_data is None:
             return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
         
         # Check for error response (API returned non-200 with detail field)
-        if isinstance(rank_data, dict) and rank_data.get('detail'):
-            return await rank.finish(rank_data.get('detail'))
+        if isinstance(update_data, dict) and update_data.get('detail'):
+            return await rank.finish(update_data.get('detail'))
+
+        params = {"scope": format_kzmode(cd.mode, 'm').upper()}
+        rank_data = await fetch_json(leaderboard_url, params=params, timeout=30, headers=headers)
         
         # Check if response is not a valid success response (missing required fields)
-        if not isinstance(rank_data, dict) or 'steamid64' not in rank_data:
+        if not isinstance(rank_data, dict) or rank_data.get('detail'):
             return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
+        rank_data = normalize_leaderboard_rank(rank_data)
         
         # Format response with update information
         differ = rank_data.get('differ', {})
@@ -484,15 +503,7 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
             ╚═════════════
         """).strip()
     else:
-        # Use GET request for normal query with KZT format
-        # Convert mode to API format: kz_timer -> KZT, kz_simple -> SKZ, kz_vanilla -> VNL
-        mode_mapping = {
-            "kz_timer": "KZT",
-            "kz_simple": "SKZ",
-            "kz_vanilla": "VNL"
-        }
-        api_mode = mode_mapping.get(cd.mode, cd.mode.upper())
-        params = {"mode": api_mode}
+        params = {"scope": format_kzmode(cd.mode, 'm').upper()}
         rank_data = await fetch_json(leaderboard_url, params=params, timeout=30, headers=headers)
         if rank_data is None:
             return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
@@ -502,8 +513,9 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
             return await rank.finish(rank_data.get('detail'))
         
         # Check if response is not a valid success response (missing required fields)
-        if not isinstance(rank_data, dict) or 'steamid64' not in rank_data:
+        if not isinstance(rank_data, dict) or rank_data.get('detail'):
             return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
+        rank_data = normalize_leaderboard_rank(rank_data)
         
         content = dedent(f"""
             ╔════════════
@@ -562,15 +574,13 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     
     map_name = map_search_results[0]
     
-    BASE_URL = "https://api.gokz.top/api/v1"
+    BASE_URL = GOKZ_TOP_V1
     
-    # Prepare headers with API key if available
+    # Review reads are public v1 endpoints.
     headers = {}
-    if GOKZ_TOP_API_KEY:
-        headers["Authorization"] = f"Bearer {GOKZ_TOP_API_KEY}"
     
     # Fetch review summary
-    summary_url = f"{BASE_URL}/maps/reviews/summary"
+    summary_url = f"{BASE_URL}/maps/reviews"
     summary_params = {"map_name": map_name, "limit": 100}
     summary_data = await fetch_json(summary_url, params=summary_params, headers=headers, timeout=30)
     
@@ -589,28 +599,25 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     if not summary_list or len(summary_list) == 0:
         return await review.finish(f"地图 {map_name} 暂无评价数据。")
     
-    summary = summary_list[0]
-    stars = summary.get('stars', {})
-    
-    # Safely get star values, handling None
-    overall_avg = stars.get('overall_avg_stars') or 0
-    overall_count = stars.get('overall_count') or 0
-    visuals_avg = stars.get('visuals_avg_stars') or 0
-    visuals_count = stars.get('visuals_count') or 0
-    gameplay_avg = stars.get('gameplay_avg_stars') or 0
-    gameplay_count = stars.get('gameplay_count') or 0
-    comment_count = summary.get('comment_count') or 0
+    ratings = [item.get('content', {}) for item in summary_list]
+    def average(aspect):
+        values = [rating[aspect] for rating in ratings if rating.get(aspect) is not None]
+        return (sum(values) / len(values), len(values)) if values else (0, 0)
+    overall_avg, overall_count = average('overall')
+    visuals_avg, visuals_count = average('visuals')
+    gameplay_avg, gameplay_count = average('gameplay')
+    comment_count = sum(bool(rating.get('comment')) for rating in ratings)
     
     # Fetch map data to get authors
-    map_url = f"{BASE_URL}/maps/name/{map_name}"
-    map_data = await fetch_json(map_url, headers=headers, timeout=30)
+    map_url = f"{BASE_URL}/maps"
+    map_data = await fetch_json(map_url, params={"name": map_name, "limit": 1}, headers=headers, timeout=30)
     
     # Format author names (use alias if available, otherwise name)
     author_names = []
-    if map_data and isinstance(map_data, dict):
-        authors = map_data.get('authors', [])
+    if isinstance(map_data, list) and map_data:
+        authors = map_data[0].get('authors', [])
         for author in authors:
-            author_name = author.get('alias') or author.get('name', '未知作者')
+            author_name = author if isinstance(author, str) else author.get('name', '未知作者')
             author_names.append(author_name)
     
     # Build summary content
@@ -633,8 +640,8 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     """).strip()
     
     # Fetch comments from comments endpoint
-    comments_url = f"{BASE_URL}/maps/{map_name}/comments"
-    comments_params = {"offset": 0, "limit": 100, "include_ratings_only": "false"}
+    comments_url = f"{BASE_URL}/maps/reviews"
+    comments_params = {"map_name": map_name, "offset": 0, "limit": 100, "with_comments_only": "true"}
     comments_data = await fetch_json(comments_url, params=comments_params, headers=headers, timeout=30)
     
     if comments_data and isinstance(comments_data, dict):
@@ -649,16 +656,12 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
             
             # Show up to 5 most recent comments
             for idx, comment_item in enumerate(comments_list[:5], 1):
-                player_name = comment_item.get('player_name', '未知玩家')
-                comment_text = comment_item.get('comment', '')
+                player_name = comment_item.get('player', {}).get('display_name', '未知玩家')
+                review_content = comment_item.get('content', {})
+                comment_text = review_content.get('comment', {}).get('text', '')
                 
                 # Get overall rating from ratings array
-                overall_rating = None
-                ratings = comment_item.get('ratings', [])
-                for rating in ratings:
-                    if rating.get('aspect') == 'overall':
-                        overall_rating = rating.get('rating')
-                        break
+                overall_rating = review_content.get('overall')
                 
                 rating_str = f"{overall_rating}⭐" if overall_rating else "未评分"
                 
@@ -715,117 +718,32 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     
     map_name = map_search_results[0]
     
-    BASE_URL = "https://api.gokz.top/api/v1"
-    
-    # Prepare headers with API key if available
-    headers = {}
-    if GOKZ_TOP_API_KEY:
-        headers["Authorization"] = f"Bearer {GOKZ_TOP_API_KEY}"
-    
-    params = {"steamid64": cd.steamid}
-    
-    # Check if first param after map name is an integer (rating) or text (comments only)
+    maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
+    if not isinstance(maps, list) or not maps:
+        return await rate.finish("未找到该地图，请检查地图名是否正确。")
+
     try:
         overall_star = int(args_list[1])
-        if not (1 <= overall_star <= 5):
-            return await rate.finish("评分必须在1-5之间")
-        
-        # First param is a valid rating, proceed with rating logic
-        # Check if 3 separate ratings are provided
-        gameplay_star = None
-        visual_star = None
-        comments = None
-        
-        if len(args_list) >= 4:
-            # Try to parse as 3 separate ratings
-            try:
-                gameplay_star = int(args_list[2])
-                visual_star = int(args_list[3])
-                if not (1 <= gameplay_star <= 5) or not (1 <= visual_star <= 5):
-                    return await rate.finish("评分必须在1-5之间")
-                # Comments start from index 4
-                if len(args_list) > 4:
-                    comments = ' '.join(args_list[4:])
-            except ValueError:
-                # If parsing fails, treat as comments
-                comments = ' '.join(args_list[2:])
-        elif len(args_list) > 2:
-            # Comments provided with single rating
-            comments = ' '.join(args_list[2:])
-        
-        # Submit ratings
-        ratings_url = f"{BASE_URL}/maps/{map_name}/ratings"
-        
-        # Submit overall rating
-        overall_data = {"aspect": "overall", "rating": overall_star}
-        success, overall_result, error_msg = await post_json(ratings_url, json_data=overall_data, params=params, headers=headers, timeout=30)
-        
-        if not success:
-            if error_msg:
-                return await rate.finish(f"提交评分失败: {error_msg}")
-            return await rate.finish("提交评分失败，请稍后再试。")
-        
-        # Submit gameplay and visuals ratings if provided
-        if gameplay_star is not None:
-            gameplay_data = {"aspect": "gameplay", "rating": gameplay_star}
-            success, gameplay_result, error_msg = await post_json(ratings_url, json_data=gameplay_data, params=params, headers=headers, timeout=30)
-            if not success:
-                if error_msg:
-                    logger.warning(f"Failed to submit gameplay rating for {map_name}: {error_msg}")
-                else:
-                    logger.warning(f"Failed to submit gameplay rating for {map_name}")
-        
-        if visual_star is not None:
-            visual_data = {"aspect": "visuals", "rating": visual_star}
-            success, visual_result, error_msg = await post_json(ratings_url, json_data=visual_data, params=params, headers=headers, timeout=30)
-            if not success:
-                if error_msg:
-                    logger.warning(f"Failed to submit visuals rating for {map_name}: {error_msg}")
-                else:
-                    logger.warning(f"Failed to submit visuals rating for {map_name}")
-        
-        # Submit comment if provided
-        if comments:
-            comments_url = f"{BASE_URL}/maps/{map_name}/comments"
-            comment_data = {"comment": comments}
-            success, comment_result, error_msg = await post_json(comments_url, json_data=comment_data, params=params, headers=headers, timeout=30)
-            if not success:
-                if error_msg:
-                    logger.warning(f"Failed to submit comment for {map_name}: {error_msg}")
-                else:
-                    logger.warning(f"Failed to submit comment for {map_name}")
-        
-        # Build success message
-        content = f"✅ 已成功为地图 {map_name} 评分:\n"
-        content += f"总体评分: {overall_star}⭐\n"
-        
-        if gameplay_star is not None:
-            content += f"玩法评分: {gameplay_star}⭐\n"
-        if visual_star is not None:
-            content += f"视觉评分: {visual_star}⭐\n"
-        if comments:
-            content += f"评论: {comments}"
-        
+        gameplay_star = int(args_list[2]) if len(args_list) > 3 and args_list[2].isdigit() else None
+        visual_star = int(args_list[3]) if gameplay_star is not None and len(args_list) > 3 else None
     except ValueError:
-        # First param is not an integer, treat everything after map name as comments only
-        comments = ' '.join(args_list[1:])
-        
-        if not comments:
-            return await rate.finish("请提供评分或评论")
-        
-        # Submit comment only
-        comments_url = f"{BASE_URL}/maps/{map_name}/comments"
-        comment_data = {"comment": comments}
-        success, comment_result, error_msg = await post_json(comments_url, json_data=comment_data, params=params, headers=headers, timeout=30)
-        
-        if not success:
-            if error_msg:
-                return await rate.finish(f"提交评论失败: {error_msg}")
-            return await rate.finish("提交评论失败，请稍后再试。")
-        
-        # Build success message for comments only
-        content = f"✅ 已成功为地图 {map_name} 添加评论:\n"
-        content += f"评论: {comments}"
+        return await rate.finish("新接口要求提供总体评分 (1-5)。")
+    if not all(1 <= value <= 5 for value in (overall_star, gameplay_star, visual_star) if value is not None):
+        return await rate.finish("评分必须在1-5之间")
+
+    comment_start = 4 if visual_star is not None else 2
+    content = {"overall": overall_star, "gameplay": gameplay_star, "visuals": visual_star}
+    if comment := ' '.join(args_list[comment_start:]):
+        content["comment"] = {"text": comment}
+    result = await put_json(
+        f"{GOKZ_TOP_V1}/maps/reviews",
+        json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
+        headers={"Authorization": f"Bearer {GOKZ_TOP_API_KEY}"} if GOKZ_TOP_API_KEY else None,
+        timeout=30,
+    )
+    if not isinstance(result, dict) or result.get("detail"):
+        return await rate.finish(f"提交评分失败: {result.get('detail', '请稍后再试。') if isinstance(result, dict) else '请稍后再试。'}")
+    content = f"✅ 已成功为地图 {map_name} 评分:\n总体评分: {overall_star}⭐"
     
     # Add newline at start for group messages
     if getattr(event, 'group_id', None):
