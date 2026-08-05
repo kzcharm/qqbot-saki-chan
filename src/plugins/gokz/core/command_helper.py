@@ -83,7 +83,7 @@ class CommandData:
                 return
         else:
             try:
-                self.mode = format_kzmode(parsed_args.get('mode', user.mode))
+                self.mode = format_kzmode(parsed_args.get('mode') or user.mode)
             except ValueError:
                 self.error = "模式格式不正确"
                 return
@@ -100,9 +100,6 @@ def parse_args(text: str) -> dict:
     steamid64_pattern = re.compile(r"7656119\d{10}")
     steamid_pattern = re.compile(r"STEAM_[0-1]:[0-1]:\d+")
     
-    # Mode flags that should be treated as -m <mode>
-    mode_flags = {'k', 's', 'v', 'kzt', 'skz', 'vnl'}
-
     parser = argparse.ArgumentParser(description='Parse arguments from a text string.')
     parser.add_argument('args', nargs='*', help='Positional arguments before the flags')
     parser.add_argument('-M', '--map_name', type=str, help='Name of the map')
@@ -121,18 +118,22 @@ def parse_args(text: str) -> dict:
         
         # Preprocess: find mode flags in positional arguments and convert them to -m <mode>
         # Only do this if -m or --mode is not already present
-        has_mode_flag = any(arg in ['-m', '--mode'] for arg in args)
+        has_mode_flag = any(
+            arg in ['-m', '--mode'] or arg.startswith('--mode=')
+            for arg in args
+        )
         if not has_mode_flag:
             new_args = []
             mode_found = None
             for arg in args:
-                arg_lower = arg.lower()
-                if arg_lower in mode_flags:
-                    # Found a mode flag, convert it to -m <mode>
-                    mode_found = arg_lower
-                    new_args.extend(['-m', arg_lower])
-                else:
+                try:
+                    format_kzmode(arg)
+                except (TypeError, ValueError):
                     new_args.append(arg)
+                else:
+                    # Found a mode flag, convert it to -m <mode>
+                    mode_found = arg
+                    new_args.extend(['-m', arg])
             if mode_found is not None:
                 args = new_args
         
