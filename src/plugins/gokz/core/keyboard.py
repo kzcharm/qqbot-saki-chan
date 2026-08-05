@@ -10,7 +10,7 @@ from nonebot.adapters.qq.message import MessageSegment
 
 class KeyboardBuilder:
     @staticmethod
-    def button(id, label, visited_label, style, action_type, permission_type, action_data, 
+    def button(id, label, visited_label, style, action_type, permission_type, action_data,
                       specify_user_ids=None, specify_role_ids=None, reply=False, enter=False, unsupport_tips=None):
         """
         :param id: 按钮ID
@@ -32,7 +32,7 @@ class KeyboardBuilder:
             specify_user_ids=specify_user_ids,
             specify_role_ids=specify_role_ids
         )
-        
+
         action = Action(
             type=action_type,
             permission=permission,
@@ -41,7 +41,7 @@ class KeyboardBuilder:
             enter=enter,
             unsupport_tips=unsupport_tips
         )
-        
+
         # 创建按钮
         button = Button(
             id=id,
@@ -65,4 +65,3 @@ class KeyboardBuilder:
         inline_keyboard = InlineKeyboard(rows=keyboard_rows)
         message_keyboard = MessageKeyboard(content=inline_keyboard)
         return MessageSegment.keyboard(message_keyboard)
-

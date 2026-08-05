@@ -16,7 +16,7 @@ class MarkdownBuilder:
             if not isinstance(values, list):
                 values = [values]
             markdown_params.append(MessageMarkdownParams(key=key, values=values))
-        
+
         markdown_message = MessageMarkdown(
             custom_template_id=cls.CUSTOM_TEMPLATE_ID,
             params=markdown_params
