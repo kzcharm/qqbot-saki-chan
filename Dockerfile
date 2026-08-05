@@ -14,5 +14,4 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["nb", "run"]
-
+CMD ["python", "bot.py"]
