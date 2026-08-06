@@ -63,3 +63,33 @@ def get_cs2kz_preferred_map_img_url(map_name: str) -> str:
     if map_name == "kz_sonder":
         return f"https://raw.githubusercontent.com/vap222222/nonglobalmaps/main/{map_name}.jpg"
     return f"https://raw.githubusercontent.com/kzglobalteam/cs2kz-images/public/webp/medium/{map_name}/1.webp"
+
+
+async def get_cs2kz_preferred_map_img_path(map_name: str) -> Optional[Path]:
+    """Cache a CS2KZ map image locally so QQ uploads the file directly."""
+    image_url = get_cs2kz_preferred_map_img_url(map_name)
+    extension = ".jpg" if map_name == "kz_sonder" else ".webp"
+    cache_file = store.get_cache_file("gokz", f"cs2kz_map_images/{map_name}{extension}")
+
+    if cache_file.exists():
+        return cache_file
+
+    try:
+        async with aiohttp.ClientSession(timeout=ClientTimeout(total=10)) as session:
+            async with session.get(image_url) as response:
+                if response.status != 200:
+                    from nonebot import logger
+                    logger.info(f"CS2KZ map image not available for {map_name}: HTTP {response.status}")
+                    return None
+                cache_file.parent.mkdir(parents=True, exist_ok=True)
+                with cache_file.open("wb") as f:
+                    f.write(await response.read())
+                return cache_file
+    except aiohttp.ClientError as e:
+        from nonebot import logger
+        logger.info(f"Network error downloading CS2KZ map image for {map_name}: {e}")
+        return None
+    except Exception as e:
+        from nonebot import logger
+        logger.error(f"Error caching CS2KZ map image for {map_name}: {e}")
+        return None

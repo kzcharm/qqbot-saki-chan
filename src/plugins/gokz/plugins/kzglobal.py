@@ -20,7 +20,7 @@ from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import format_kzmode, search_map
 from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
-from src.plugins.gokz.core.map_img_url import get_cs2kz_preferred_map_img_url, get_map_img_url
+from src.plugins.gokz.core.map_img_url import get_cs2kz_preferred_map_img_path, get_map_img_url
 from ..config import GOKZ_TOP_API_KEY
 
 pb = on_command('pb', aliases={'personal-best'})
@@ -66,7 +66,7 @@ def cs2_record_text(record: dict, pro: bool | None = None) -> str:
         ║ 存点:　　{record['teleports']}
         ║ 分数:　　{(cs2kz.record_points(record, pro) or 0):.0f}
         ║ 排名:　　#{cs2kz.record_rank(record, pro) or '-'}
-        ║ 服务器:　{record['server']['name']}""")
+        ║ 服务器:　{record['server']['name']}""").strip()
 
 
 @update_map_info.handle()
@@ -153,7 +153,10 @@ async def _(event: Event, args: Message = CommandArg()):
         content += "\n╠═════PRO记录═════"
         content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
         content += "\n╚ CS2KZ ═══"
-        return await wr.send(MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
+        img_path = await get_cs2kz_preferred_map_img_path(map_name)
+        if not img_path:
+            return
+        return await wr.send(MessageSegment.file_image(img_path) + MessageSegment.text(content))
 
     map_name = search_map(cd.args[0])[0]
 
@@ -220,13 +223,17 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         if not records:
             return await pr.finish("未找到CS2KZ最近记录")
         data = records[0]
-        content = dedent(f"""
-            ╔ 地图:　　{data['map']['name']}
-            ║ 关卡:　　{data['course']['name']}
-            ║ 模式:　　{format_cs2kz_mode_label(cd.mode)}
-            {cs2_record_text(data)}
-            ╚ CS2KZ ═══""").strip()
-        return await bot.send(event, MessageSegment.image(get_cs2kz_preferred_map_img_url(data['map']['name'])) + MessageSegment.text(content))
+        content = "\n".join((
+            f"╔ 地图:　　{data['map']['name']}",
+            f"║ 关卡:　　{data['course']['name']}",
+            f"║ 模式:　　{format_cs2kz_mode_label(cd.mode)}",
+            cs2_record_text(data),
+            "╚ CS2KZ ═══",
+        ))
+        img_path = await get_cs2kz_preferred_map_img_path(data['map']['name'])
+        if not img_path:
+            return
+        return await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
 
     data = await fetch_personal_recent(cd.steamid, cd.mode)
 
@@ -277,7 +284,10 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         content += "\n╠═════PRO记录═════"
         content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
         content += "\n╚ CS2KZ ═══"
-        return await bot.send(event, MessageSegment.image(get_cs2kz_preferred_map_img_url(map_name)) + MessageSegment.text(content))
+        img_path = await get_cs2kz_preferred_map_img_path(map_name)
+        if not img_path:
+            return
+        return await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
 
     map_name = search_map(cd.args[0])[0]
 
