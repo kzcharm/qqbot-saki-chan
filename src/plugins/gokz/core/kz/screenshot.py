@@ -114,40 +114,42 @@ def vnl_screenshot(steamid: str, force_update: bool = False) -> str:
     options.add_argument("--no-sandbox")
     driver = webdriver.Chrome(options=options)
 
-    driver.get(f"https://vnl.kz/#/stats/{steamid64}")
-    # Increase window size to capture more content
-    width, height = 920, 700
-    driver.set_window_size(width, height)
-    
-    wait = WebDriverWait(driver, 30)
-    
-    # Wait for the main content to load
-    wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'TP')]")))
-    
-    # Wait for avatar image to load
     try:
-        # Wait for the avatar img element to be present
-        avatar_img = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "img[src*='avatars.steamstatic.com']")))
-        # Wait for the image to be fully loaded
-        wait.until(lambda d: d.execute_script(
-            "return arguments[0].complete && arguments[0].naturalHeight > 0", 
-            avatar_img
-        ))
-    except Exception:
-        # If avatar doesn't load, continue anyway after a short delay
-        time.sleep(1)
-    
-    # Wait for progress bars or other key content elements to be visible
-    try:
-        wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'PRO')]")))
-        # Additional wait for any progress bars to render
-        time.sleep(1.5)
-    except Exception:
-        # If elements don't appear, wait a bit more before screenshot
-        time.sleep(2)
+        driver.get(f"https://vnlkz.com/#/stats/{steamid64}")
+        # Increase window size to capture more content
+        width, height = 920, 700
+        driver.set_window_size(width, height)
 
-    screenshot = driver.get_screenshot_as_png()
-    driver.quit()
+        wait = WebDriverWait(driver, 30)
+
+        # Wait for the main content to load
+        wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'TP')]")))
+
+        # Wait for avatar image to load
+        try:
+            # Wait for the avatar img element to be present
+            avatar_img = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "img[src*='avatars.steamstatic.com']")))
+            # Wait for the image to be fully loaded
+            wait.until(lambda d: d.execute_script(
+                "return arguments[0].complete && arguments[0].naturalHeight > 0",
+                avatar_img
+            ))
+        except Exception:
+            # If avatar doesn't load, continue anyway after a short delay
+            time.sleep(1)
+
+        # Wait for progress bars or other key content elements to be visible
+        try:
+            wait.until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(), 'PRO')]")))
+            # Additional wait for any progress bars to render
+            time.sleep(1.5)
+        except Exception:
+            # If elements don't appear, wait a bit more before screenshot
+            time.sleep(2)
+
+        screenshot = driver.get_screenshot_as_png()
+    finally:
+        driver.quit()
 
     img = Image.open(BytesIO(screenshot))
     # Crop: remove top 64px and bottom 130px, keep small side margins
