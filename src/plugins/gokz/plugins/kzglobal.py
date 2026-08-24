@@ -64,9 +64,9 @@ def selected_gokz_command(command: str, map_name: str, cd: CommandData) -> str:
 def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str | None = None):
     """Build follow-up actions for a PB result.
 
-    The self-query action is useful only when a group member queried another
-    player (``CommandData.steamid2`` is set for that case).  ``enter=True``
-    makes QQ submit the command directly after the user taps the button.
+    In group chats, anyone viewing the result can use the self-query action.
+    Its command deliberately has no player target, so it resolves to the
+    group member who taps it. ``enter=True`` submits it directly.
     """
     mode = (
         f" -m {cd.mode}" if cd.game == "cs2kz"
@@ -85,11 +85,16 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
             if value.lower() != current_mode
         ]
     actions = []
-    if getattr(event, "group_id", None) and cd.steamid2 and cd.steamid != cd.steamid2:
+    # The QQ adapter identifies groups with ``group_openid``.  Keep
+    # ``group_id`` as a fallback for compatible event implementations.
+    is_group_chat = bool(
+        getattr(event, "group_openid", None) or getattr(event, "group_id", None)
+    )
+    if is_group_chat:
         actions.append(
             KeyboardBuilder.button(
                 id="pb_self",
-                label="查询我的",
+                label="查询我的记录",
                 visited_label="查询中",
                 style=1,
                 action_type=2,
@@ -166,7 +171,14 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
             enter=True,
         )
     )
-    return KeyboardBuilder.keyboard(*(actions[index:index + 2] for index in range(0, len(actions), 2)))
+    if len(actions) >= 3 and len(actions) % 2:
+        rows = [
+            *(actions[index:index + 2] for index in range(0, len(actions) - 3, 2)),
+            actions[-3:],
+        ]
+    else:
+        rows = [actions[index:index + 2] for index in range(0, len(actions), 2)]
+    return KeyboardBuilder.keyboard(*rows)
 
 
 def pb_keyboard_message(keyboard, map_name: str):
