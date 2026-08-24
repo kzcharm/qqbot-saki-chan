@@ -55,7 +55,7 @@ GOKZ_TOP_V1 = "https://api.gokz.top/v1"
 
 def selected_gokz_command(command: str, map_name: str, cd: CommandData) -> str:
     """Recreate a GOKZ query after a user chooses an ambiguous map."""
-    arguments = ("-m", str(cd.mode))
+    arguments = ("-m", str(format_kzmode(cd.mode, "m").upper()))
     if cd.steamid2:
         arguments += ("-s", cd.steamid)
     return map_command(command, map_name, *arguments)
@@ -68,7 +68,10 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
     player (``CommandData.steamid2`` is set for that case).  ``enter=True``
     makes QQ submit the command directly after the user taps the button.
     """
-    mode = f" -m {cd.mode}" if cd.mode else ""
+    mode = (
+        f" -m {cd.mode}" if cd.game == "cs2kz"
+        else f" -m {format_kzmode(cd.mode, 'm').upper()}"
+    ) if cd.mode else ""
     game = " -2" if cd.game == "cs2kz" else ""
     course_arg = f" -c {course}" if course and cd.game == "cs2kz" and course != "Main" else ""
     target_arg = f" -s {cd.steamid}" if cd.steamid2 and cd.steamid != cd.steamid2 else ""
@@ -78,8 +81,8 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
         current_mode = format_kzmode(cd.mode, "m")
         other_modes = [
             (label, value)
-            for label, value in (("KZT", "kzt"), ("SKZ", "skz"), ("VNL", "vnl"))
-            if value != current_mode
+            for label, value in (("KZT", "KZT"), ("SKZ", "SKZ"), ("VNL", "VNL"))
+            if value.lower() != current_mode
         ]
     actions = []
     if getattr(event, "group_id", None) and cd.steamid2 and cd.steamid != cd.steamid2:
@@ -296,11 +299,12 @@ async def _(event: Event, args: Message = CommandArg()):
         return await wr.finish("未找到该地图")
 
     kz_mode = cd.mode
+    kz_mode_label = format_kzmode(kz_mode, "m").upper()
 
     content = dedent(f"""
         ╔ 地图:　{map_name}
         ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
-        ║ 模式:　{kz_mode}
+        ║ 模式:　{kz_mode_label}
         ╠═════Overall记录═════
     """).strip()
 
@@ -378,7 +382,7 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     content = dedent(f"""
         ╔ 地图:　　{data['map_name']}
         ║ 难度:　　T{MAP_TIERS.get(data['map_name'], '未知')}
-        ║ 模式:　　{cd.mode}
+        ║ 模式:　　{format_kzmode(cd.mode, 'm').upper()}
         ║ 玩家:　　{data['player_name']} 
         ║ 用时:　　{format_gruntime(data['time'])}
         ║ 存点数:　{data['teleports']}
@@ -443,7 +447,7 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     content = dedent(f"""
         ╔ 地图:　{map_name}
         ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
-        ║ 模式:　{cd.mode}
+        ║ 模式:　{format_kzmode(cd.mode, 'm').upper()}
         ╠═════存点记录═════""").strip()
 
     try:

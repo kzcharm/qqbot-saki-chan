@@ -185,7 +185,7 @@ async def map_progress(event: Event, args: Message = CommandArg()):
 
     map_name, candidates = resolve_map_name(cd.args[0])
     if candidates:
-        query_arguments = ("-m", str(cd.mode))
+        query_arguments = ("-m", str(format_kzmode(cd.mode, "m").upper()))
         if cd.steamid2:
             query_arguments += ("-s", cd.steamid)
         return await progress.finish(map_selection_message(
@@ -228,7 +228,7 @@ async def map_progress(event: Event, args: Message = CommandArg()):
             
             # Build limited content with only best records
             content = f"玩家: {tp_record.get('player_name', pro_record.get('player_name', '未知'))}\n"
-            content += f"在地图: {map_name}\n模式: {cd.mode} 的进度（仅显示最佳记录）\n"
+            content += f"在地图: {map_name}\n模式: {format_kzmode(cd.mode, 'm').upper()} 的进度（仅显示最佳记录）\n"
             content += "\n注意: gokz-top API不可用，仅显示最佳记录\n"
             
             if tp_record:
