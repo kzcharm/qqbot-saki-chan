@@ -2,9 +2,9 @@ import argparse
 import shlex
 import re
 from dataclasses import dataclass, field, asdict
-from typing import Optional, Tuple
-from pathlib import Path
+from typing import Optional, Tuple, Union
 
+from nonebot.adapters.qq import Message
 from sqlmodel import Session
 
 from src.plugins.gokz.db.db import engine
@@ -12,6 +12,7 @@ from src.plugins.gokz.db.models import User
 from src.plugins.gokz.core.kreedz import format_kzmode
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.game import format_cs2kz_mode
+from src.plugins.gokz.core.binding_message import binding_help_message
 
 
 @dataclass
@@ -25,8 +26,7 @@ class CommandData:
     steamid2: Optional[str] = None
     args: Tuple = field(default_factory=tuple)
     update: bool = False
-    error: Optional[str] = None
-    error_image: Optional[Path] = None
+    error: Optional[Union[str, Message]] = None
 
     def __init__(self, event, args):
         self.qid = event.get_user_id()
@@ -40,9 +40,8 @@ class CommandData:
             user = session.get(User, self.qid)  # NOQA
 
             if not user or not user.steamid:
-                self.error = '客服小祥温馨提示您: 请先 /bind'
-                self.error_image = Path('data/img/binding.png')
-                print(self.error)
+                self.error = binding_help_message()
+                print("User has not bound a Steam account")
                 return
 
             # SteamID64 is the bot's internal representation. Normalize older

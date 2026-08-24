@@ -158,8 +158,6 @@ def convert_to_shanghai_time(date_str):
 async def _(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await ban_.send(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await ban_.send(cd.error)
 
     bans = await fetch_personal_bans(steamid64=cd.steamid)
@@ -199,8 +197,6 @@ async def _(event: Event, args: Message = CommandArg()):
 async def _(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await wr.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await wr.finish(cd.error)
 
     if not cd.args:
@@ -280,8 +276,6 @@ async def _(event: Event, args: Message = CommandArg()):
 async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await pr.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pr.finish(cd.error)
 
     if cd.game == "cs2kz":
@@ -330,8 +324,6 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
 async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await pb.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pb.finish(cd.error)
 
     if not cd.args:
@@ -415,8 +407,6 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
 async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await rank.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await rank.finish(cd.error)
 
     if cd.game == "cs2kz":
@@ -783,8 +773,6 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     """
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await rate.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await rate.finish(cd.error)
     
     if not args:
@@ -842,8 +830,6 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
 async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await bot.send(event, MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await bot.send(event, cd.error)
 
     if cd.game == "cs2kz":

@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from textwrap import dedent
 
 from nonebot import on_command, logger
@@ -13,6 +12,7 @@ from src.plugins.gokz.core.kreedz import format_kzmode
 from src.plugins.gokz.core.game import format_cs2kz_mode, format_cs2kz_mode_label, format_game, toggle_game
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import verify_binding_code
+from src.plugins.gokz.core.binding_message import binding_help_message
 from src.plugins.gokz.config import QQ_BOT_SECRET
 from ..api.helper import fetch_json
 from ..core.command_helper import CommandData
@@ -35,8 +35,6 @@ info = on_command("info")
 async def _(event: MessageEvent, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await info.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await info.finish(cd.error)
     
     with Session(engine) as session:
@@ -92,15 +90,9 @@ async def _():
 @bind.handle()
 async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     input_text = args.extract_plain_text().strip()
-    image_path = Path('data/img/binding.png')
     
     if not input_text:
-        if image_path.exists():
-            return await bind.finish(
-                MessageSegment.file_image(image_path)
-                + MessageSegment.text("\n请在 gokz.top 生成绑定码后发送：/bind KZTOP...")
-            )
-        return await bind.finish("请在 gokz.top 生成绑定码后发送：/bind KZTOP...")
+        return await bind.finish(binding_help_message())
 
     if not QQ_BOT_SECRET:
         return await bind.finish("绑定码功能未配置，请联系管理员")
@@ -163,7 +155,7 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
     with Session(engine) as session:
         user = session.get(User, event.get_user_id())
     if not user:
-        return await mode.finish("你还未绑定steamid")
+        return await mode.finish(binding_help_message())
 
     if not mode_:
         current = format_cs2kz_mode_label(user.cs2kz_mode) if user.game == "cs2kz" else format_kzmode(user.mode, "m").upper()
@@ -178,7 +170,7 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
     with Session(engine) as session:
         user: User | None = session.get(User, qid)
         if not user:
-            return await mode.finish("你还未绑定steamid")
+            return await mode.finish(binding_help_message())
 
         if user.game == "cs2kz":
             user.cs2kz_mode = mode_
@@ -196,7 +188,7 @@ async def update_game(event: MessageEvent, args: Message = CommandArg()):
     with Session(engine) as session:
         user = session.get(User, event.get_user_id())
         if not user:
-            return await game.finish("你还未绑定steamid")
+            return await game.finish(binding_help_message())
         try:
             selected_game = format_game(args.extract_plain_text()) if args.extract_plain_text() else toggle_game(user.game)
         except ValueError:

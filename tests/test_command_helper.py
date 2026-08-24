@@ -27,7 +27,14 @@ class TestCommandHelper(unittest.TestCase):
         sys.modules["src.plugins.gokz.db.models"] = types.SimpleNamespace(User=object)
         sys.modules["src.plugins.gokz.core.steam_user"] = types.SimpleNamespace(convert_steamid=lambda value, _: value)
         sys.modules["src.plugins.gokz.core.game"] = types.SimpleNamespace(format_cs2kz_mode=lambda mode: mode)
-        cls.parse_args = staticmethod(load_module("src.plugins.gokz.core.command_helper", ROOT / "src/plugins/gokz/core/command_helper.py").parse_args)
+        cls.binding_help_message = object()
+        sys.modules["src.plugins.gokz.core.binding_message"] = types.SimpleNamespace(
+            binding_help_message=lambda: cls.binding_help_message
+        )
+        cls.command_helper = load_module(
+            "src.plugins.gokz.core.command_helper", ROOT / "src/plugins/gokz/core/command_helper.py"
+        )
+        cls.parse_args = staticmethod(cls.command_helper.parse_args)
 
     def test_map_name_is_not_treated_as_mode(self):
         parsed = self.parse_args("innit")
@@ -47,6 +54,50 @@ class TestCommandHelper(unittest.TestCase):
 
         self.assertEqual(parsed["mode"], "invalid")
         self.assertEqual(parsed["args"], ("innit",))
+
+    def test_unbound_user_receives_shared_binding_help_message(self):
+        class NoUserSession:
+            def __init__(self, _engine):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def get(self, *_args):
+                return None
+
+        class Event:
+            def get_user_id(self):
+                return "123"
+
+        class Args:
+            def extract_plain_text(self):
+                return ""
+
+        original_session = self.command_helper.Session
+        self.command_helper.Session = NoUserSession
+        try:
+            command_data = self.command_helper.CommandData(Event(), Args())
+        finally:
+            self.command_helper.Session = original_session
+
+        self.assertIs(command_data.error, self.binding_help_message)
+
+    def test_argument_errors_remain_plain_text(self):
+        class Event:
+            def get_user_id(self):
+                return "123"
+
+        class Args:
+            def extract_plain_text(self):
+                return '"'
+
+        command_data = self.command_helper.CommandData(Event(), Args())
+
+        self.assertIsInstance(command_data.error, str)
 
 
 if __name__ == "__main__":

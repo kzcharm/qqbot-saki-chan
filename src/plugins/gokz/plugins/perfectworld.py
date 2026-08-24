@@ -13,8 +13,6 @@ pw = on_command("pw", aliases={"完美", "perfectworld"})
 async def _(event: MessageEvent, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await pw.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await pw.finish(cd.error)
 
     steamid64 = convert_steamid(cd.steamid, 64)

@@ -77,8 +77,6 @@ async def find_handle(event: Event, args: Message = CommandArg()):
 async def check_cheng_fen(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await ccf.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await ccf.finish(cd.error)
 
     if cd.game == "cs2kz":
@@ -158,8 +156,6 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
 async def map_progress(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
-        if cd.error_image and cd.error_image.exists():
-            return await progress.finish(MessageSegment.file_image(cd.error_image) + MessageSegment.text(cd.error))
         return await progress.finish(cd.error)
 
     if not cd.args:
