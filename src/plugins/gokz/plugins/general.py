@@ -122,7 +122,6 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
         绑定成功!
         {qq_name}
         {user.steamid}
-        请勿绑定他人的账号, 违者可能会被封禁
     """).strip()
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
