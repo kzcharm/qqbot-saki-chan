@@ -20,7 +20,7 @@
 
 - `/help` 查看帮助
 
-- `/bind <steamid>` 绑定steamid, 支持任意格式. 例: `/bind STEAM_1:0:530988200`
+- `/bind <binding-code>` 绑定 Steam 账号。在 [gokz.top](https://gokz.top/) 生成绑定码后发送，例如：`/bind KZTOP...`。绑定码区分大小写且会过期。
 - `/mode <mode>` 切换默认模式 例: `/mode skz`
 
 ### GOKZ全球

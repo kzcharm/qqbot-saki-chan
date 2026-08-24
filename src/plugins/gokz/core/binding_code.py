@@ -1,82 +1,61 @@
-import hmac
 import hashlib
-from datetime import datetime, timezone
-from typing import Optional, Dict
-
-# Base36 character set (0-9, A-Z)
-BASE36_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+import hmac
+import time
+from typing import Optional, TypedDict
 
 
-def base36_to_int(s: str) -> int:
-    """Convert base36 string to integer."""
-    num = 0
-    for char in s.upper():
-        if char not in BASE36_CHARS:
-            raise ValueError(f"Invalid base36 character: {char}")
-        num = num * 36 + BASE36_CHARS.index(char)
-    return num
+PREFIX = "KZTOP"
+ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+STEAMID64_BASE = 76561197960265728
+RAW_CODE_LENGTH = 16
+ENCODED_CODE_LENGTH = 22
 
 
-def int_to_base36(num: int) -> str:
-    """Convert integer to base36 string."""
-    if num == 0:
-        return "0"
-    result = []
-    while num > 0:
-        result.append(BASE36_CHARS[num % 36])
-        num //= 36
-    return "".join(reversed(result))
+class BindingCode(TypedDict):
+    steamid64: str
+    expires_at: int
 
 
-def decode_binding_code(code: str, secret: str) -> Optional[Dict[str, any]]:
-    """
-    Decode and validate a 32-character binding code.
+def base62_decode(input_text: str) -> bytes:
+    """Decode a 22-character KZTOP payload into its 16 raw bytes."""
+    if len(input_text) != ENCODED_CODE_LENGTH:
+        raise ValueError("Invalid binding-code length")
 
-    Args:
-        code: The 32-character binding code from the user
-        secret: The shared secret (same as qq_bot_secret in database settings)
+    number = 0
+    for char in input_text:
+        digit = ALPHABET.find(char)
+        if digit == -1:
+            raise ValueError("Invalid binding-code character")
+        number = number * len(ALPHABET) + digit
 
-    Returns:
-        Dict with 'steamid64' (str) and 'exp' (datetime) if valid, None if invalid/expired
-    """
-    if len(code) != 32:
-        return None
+    if number.bit_length() > RAW_CODE_LENGTH * 8:
+        raise ValueError("Invalid binding code")
 
-    try:
-        # Split: [steamid64:11][exp_minutes:5][signature:16]
-        steamid64_encoded = code[:11]
-        expire_encoded = code[11:16]
-        signature_encoded = code[16:32]
+    return number.to_bytes(RAW_CODE_LENGTH, byteorder="big")
 
-        # Verify HMAC signature
-        message = f"{steamid64_encoded}:{expire_encoded}"
-        expected_signature = hmac.new(
-            secret.encode("utf-8"),
-            message.encode("utf-8"),
-            hashlib.sha256
-        ).digest()
 
-        expected_signature_int = int.from_bytes(expected_signature[:8], byteorder="big")
-        expected_signature_encoded = int_to_base36(expected_signature_int).zfill(16)
+def verify_binding_code(code: str, secret: str, *, now: Optional[int] = None) -> BindingCode:
+    """Verify a KZTOP binding code and return its SteamID64 and expiry."""
+    if not code.startswith(PREFIX):
+        raise ValueError("Invalid binding-code prefix")
 
-        if signature_encoded != expected_signature_encoded:
-            return None  # Invalid signature
+    raw = base62_decode(code[len(PREFIX):])
+    payload = raw[:8]
+    signature = raw[8:]
+    expected_signature = hmac.new(
+        secret.encode("utf-8"), payload, hashlib.sha256
+    ).digest()[:8]
 
-        # Decode steamid64
-        steamid64 = str(base36_to_int(steamid64_encoded))
+    if not hmac.compare_digest(signature, expected_signature):
+        raise ValueError("Invalid binding-code signature")
 
-        # Decode expiration
-        expire_minutes = base36_to_int(expire_encoded)
-        expire_datetime = datetime.fromtimestamp(expire_minutes * 60, tz=timezone.utc)
+    account_id = int.from_bytes(payload[:4], byteorder="big", signed=False)
+    expires_at = int.from_bytes(payload[4:], byteorder="big", signed=False)
+    current_time = int(time.time()) if now is None else now
+    if expires_at < current_time:
+        raise ValueError("Binding code has expired")
 
-        # Check expiration
-        if datetime.now(timezone.utc) > expire_datetime:
-            return None  # Expired
-
-        return {
-            "steamid64": steamid64,
-            "exp": expire_datetime,
-        }
-    except (ValueError, IndexError, OverflowError):
-        return None
-
+    return {
+        "steamid64": str(STEAMID64_BASE + account_id),
+        "expires_at": expires_at,
+    }
