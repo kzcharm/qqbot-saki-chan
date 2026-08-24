@@ -7,6 +7,7 @@ from nonebot.log import default_format
 from nonebot.plugin import PluginMetadata
 
 from .config import Config
+from .core import command_panel  # noqa: F401 - registers the bot-connect hook
 from .core.send_retry import patch_qq_send_retry
 
 __plugin_meta__ = PluginMetadata(
