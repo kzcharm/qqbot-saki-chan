@@ -30,6 +30,8 @@ nb run --reload
 
 - `/help` 查看帮助
 
+- `/markdown_test` 发送 QQ 自定义 Markdown 渲染测试消息。
+
 - `/bind <binding-code>` 绑定 Steam 账号。在 [gokz.top](https://gokz.top/) 生成绑定码后发送，例如：`/bind KZTOP...`。绑定码区分大小写且会过期。
 - `/mode <mode>` 切换默认模式 例: `/mode skz`
 

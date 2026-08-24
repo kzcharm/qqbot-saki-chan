@@ -4,6 +4,7 @@ from textwrap import dedent
 
 from nonebot import on_command, logger
 from nonebot.adapters.qq import Bot, MessageEvent, Message, MessageSegment
+from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
 from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, select
@@ -25,6 +26,7 @@ bind = on_command("bind", aliases={"绑定"})
 mode = on_command("mode", aliases={"模式"})
 game = on_command("game", aliases={"游戏"})
 test = on_command("test")
+markdown_test = on_command("markdown_test", aliases={"测试Markdown"})
 help_ = on_command('help', aliases={"帮助"})
 info = on_command("info")
 
@@ -59,6 +61,32 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
 async def _():
     image_path = Path('data/gokz/help.png')
     await help_.finish(MessageSegment.file_image(image_path))
+
+
+@markdown_test.handle()
+async def _():
+    """Send a representative custom Markdown message for QQ rendering checks."""
+    content = dedent("""
+        # Markdown 消息测试
+        ## QQ 机器人
+
+        **加粗**、_斜体_、~~删除线~~、__下划线加粗__
+
+        [打开 gokz.top](https://gokz.top)
+        <https://bot.q.qq.com>
+
+        1. 有序列表第一项
+        2. 有序列表第二项
+
+        - 无序列表第一项
+        - 无序列表第二项
+
+        > 这是一条引用文本
+
+        ***
+        测试完成。
+    """).strip()
+    await markdown_test.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
 
 
 @bind.handle()
