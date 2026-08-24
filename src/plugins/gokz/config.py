@@ -2,8 +2,12 @@ import os
 
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from nonebot.config import Env
 
 load_dotenv()
+environment = Env().environment
+load_dotenv(f".env.{environment}", override=True)
+load_dotenv(f".env.{environment}.local", override=True)
 
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 GOKZ_TOP_API_KEY = os.getenv("GOKZ_TOP_API_KEY", "")

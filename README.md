@@ -3,6 +3,16 @@
 >  该机器人支持添加到好友列表私聊命令使用, 机器人会自动同意
 > 也可以拉到其他群里使用
 
+### 本地开发
+
+本地默认使用 `ENVIRONMENT=dev`，会合并读取 `.env`、`.env.dev` 与被 Git 忽略的 `.env.dev.local`；后者可配置独立的 QQ 沙盒机器人凭据。
+
+```bash
+nb run --reload
+```
+
+保存 Python 文件后，NoneBot CLI 会自动重启。生产环境不读取本地 `.env`，而是由部署流程生成并使用 `.env.deploy`。
+
 ### 通用指定参数:
 
 - `-q` | `--qid` 指定你想查询的人的QQ号
