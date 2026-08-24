@@ -2,11 +2,13 @@ import asyncio
 import math
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 from textwrap import dedent
 from zoneinfo import ZoneInfo
 
 from nonebot import on_command, logger
 from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
+from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 
@@ -20,7 +22,11 @@ from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import format_kzmode, search_map
 from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
-from src.plugins.gokz.core.map_img_url import get_cs2kz_preferred_map_img_path, get_map_img_url
+from src.plugins.gokz.core.map_img_url import (
+    get_cs2kz_preferred_map_img_path,
+    get_map_img_url,
+)
+from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from ..config import GOKZ_TOP_API_KEY
 
 pb = on_command('pb', aliases={'personal-best'})
@@ -38,6 +44,66 @@ group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+
+
+def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str | None = None):
+    """Build follow-up actions for a PB result.
+
+    The self-query action is useful only when a group member queried another
+    player (``CommandData.steamid2`` is set for that case).  ``enter=True``
+    makes QQ submit the command directly after the user taps the button.
+    """
+    mode = f" -m {cd.mode}" if cd.mode else ""
+    game = " -2" if cd.game == "cs2kz" else ""
+    course_arg = f" -c {course}" if course and cd.game == "cs2kz" and course != "Main" else ""
+    actions = []
+    if getattr(event, "group_id", None) and cd.steamid2 and cd.steamid != cd.steamid2:
+        actions.append(
+            KeyboardBuilder.button(
+                id="pb_self",
+                label="查询我的",
+                visited_label="查询中",
+                style=1,
+                action_type=2,
+                permission_type=2,
+                action_data=f"/pb {map_name}{mode}{game}{course_arg}",
+                reply=True,
+                enter=True,
+            )
+        )
+    actions.append(
+        KeyboardBuilder.button(
+            id="pb_wr",
+            label="查询WR",
+            visited_label="查询中",
+            style=1,
+            action_type=2,
+            permission_type=2,
+            action_data=f"/wr {map_name}{mode}{game}{course_arg}",
+            reply=True,
+            enter=True,
+        )
+    )
+    if cd.game != "cs2kz":
+        actions.append(
+            KeyboardBuilder.button(
+                id="pb_leaderboard",
+                label="查看排行榜",
+                visited_label="打开中",
+                style=1,
+                action_type=0,
+                permission_type=2,
+                action_data=f"https://gokz.top/maps/{quote(map_name, safe='')}/maptop",
+                reply=False,
+                enter=False,
+            )
+        )
+    return KeyboardBuilder.keyboard(actions)
+
+
+def pb_keyboard_message(keyboard, map_name: str):
+    """Keyboard messages still need a Markdown payload for QQ msg_type=2."""
+    return MessageSegment.markdown(MessageMarkdown(content=map_name)) + keyboard
 
 
 def normalize_leaderboard_rank(data: dict) -> dict:
@@ -285,9 +351,13 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
         content += "\n╚ CS2KZ ═══"
         img_path = await get_cs2kz_preferred_map_img_path(map_name)
-        if not img_path:
-            return
-        return await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
+        if img_path:
+            await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
+        else:
+            await bot.send(event, MessageSegment.text(content))
+        return await bot.send(event, pb_keyboard_message(
+            pb_action_keyboard(event, cd, map_name, course), map_name,
+        ))
 
     map_name = search_map(cd.args[0])[0]
 
@@ -330,16 +400,15 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         logger.info(repr(e))
         content += f"\n╚ 未发现裸跳记录"
 
-    img_path = await get_map_img_url(map_name)
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
         content = '\n' + content
+    img_path = await get_map_img_url(map_name)
     if img_path and img_path.exists():
-        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
+        await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
     else:
-        combined_message = MessageSegment.text(content)
-
-    await bot.send(event, combined_message)
+        await bot.send(event, MessageSegment.text(content))
+    await bot.send(event, pb_keyboard_message(pb_action_keyboard(event, cd, map_name), map_name))
 
 
 @rank.handle()
