@@ -1,5 +1,5 @@
+import asyncio
 from collections import Counter
-from datetime import datetime
 from textwrap import dedent
 
 from nonebot import on_command, logger
@@ -9,9 +9,9 @@ from nonebot.permission import SUPERUSER
 from sqlmodel import Session
 
 from src.plugins.gokz.core.command_helper import CommandData, parse_args
-from src.plugins.gokz.core.formatter import format_gruntime, diff_seconds_to_time, record_format_time
+from src.plugins.gokz.core.formatter import diff_seconds_to_time, format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
-from src.plugins.gokz.core.kreedz import search_map
+from src.plugins.gokz.core.kreedz import format_kzmode, search_map
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from ..api import cs2kz
@@ -178,15 +178,31 @@ async def map_progress(event: Event, args: Message = CommandArg()):
             content += f"╔ {format_gruntime(record['time'], True)} | {record['teleports']} TPs | #{cs2kz.record_rank(record) or '-'}\n"
         return await progress.finish(content)
 
-    map_name = search_map(cd.args[0])[0]
+    map_matches = search_map(cd.args[0])
+    if not map_matches:
+        return await progress.finish("未找到该地图")
+    map_name = map_matches[0]
 
-    data = await fetch_json(
-        f"{BASE}/records",
-        params={"steamid64": cd.steamid, "scope": format_kzmode(cd.mode, 'm').upper(), "map_name": map_name, "limit": 10000},
+    maps = await fetch_json(f"{BASE}/maps", params={"name": map_name, "limit": 10})
+    if not isinstance(maps, list) or not maps:
+        return await progress.finish(f"未找到地图 {map_name}")
+    map_data = next((item for item in maps if item.get("name") == map_name), maps[0])
+
+    scope = format_kzmode(cd.mode, "m").upper()
+    history_url = f"{BASE}/records/run-history"
+    nub_history, pro_history = await asyncio.gather(
+        fetch_json(
+            history_url,
+            params={"identifier": cd.steamid, "map_id": map_data["id"], "stage": 0, "scope": scope, "type": "NUB"},
+        ),
+        fetch_json(
+            history_url,
+            params={"identifier": cd.steamid, "map_id": map_data["id"], "stage": 0, "scope": scope, "type": "PRO"},
+        ),
     )
 
     # If gokz.top API fails, try kztimerglobal as fallback (limited functionality)
-    if data is None:
+    if nub_history is None and pro_history is None:
         logger.info(f"gokz.top API unavailable, trying kztimerglobal fallback for {cd.steamid} on {map_name}")
         try:
             from ..api.kztimerglobal import fetch_personal_best
@@ -230,50 +246,53 @@ async def map_progress(event: Event, args: Message = CommandArg()):
             logger.error(f"Fallback to kztimerglobal also failed: {e}")
             return await progress.finish("API服务暂时不可用，请稍后再试。")
 
-    if not data:
-        return await progress.finish(f"你尚未完成过{map_name}")
+    # A partial API failure should not hide the other history type.
+    nub_history = nub_history or {"data": []}
+    pro_history = pro_history or {"data": []}
+    if not isinstance(nub_history, dict) or not isinstance(pro_history, dict):
+        return await progress.finish("解析数据失败，请稍后再试。")
 
-    data = data.get("data", []) if isinstance(data, dict) else []
-    if not data:
+    # NUB history includes every normal completion, including PRO runs.  Keep
+    # only teleported runs here; the dedicated PRO history supplies zero-TP runs.
+    nub_records = [record for record in nub_history.get("data", []) if record.get("teleports", 0) > 0]
+    pro_records = [record for record in pro_history.get("data", []) if record.get("teleports", 0) == 0]
+    if not nub_records and not pro_records:
         return await progress.finish(f"你尚未完成过{map_name}")
 
     try:
-        data.sort(key=lambda x: x['created_on'])
-        records = []
-        completions = []
-        completions_counter = 0
-        for record in data:
-            if not records or record['time'] < records[-1]['time']:
-                records.append(record)
-                completions.append(completions_counter)
-                completions_counter = 0
-            else:
-                completions_counter += 1
+        content = f"玩家: {cd.steamid}\n在地图: {map_name}\n模式: {scope} 的进度\n"
 
-        records = list(reversed(records))
-        completions = list(reversed(completions))
+        def personal_bests(records_):
+            bests = []
+            completions_since_pb = 0
+            best_time = None
+            for record_ in sorted(records_, key=lambda item: item["created_on"]):
+                if best_time is None or record_["time"] < best_time:
+                    bests.append((record_, completions_since_pb))
+                    best_time = record_["time"]
+                    completions_since_pb = 0
+                else:
+                    completions_since_pb += 1
+            return list(reversed(bests))
 
-        tp_records = [record for record in records if record['teleports'] > 0]
-        pro_records = [record for record in records if record['teleports'] == 0]
-
-        content = f"玩家: {data[0]['player']['display_name']}\n在地图: {data[0]['map_name']}\n模式: {data[0]['mode']} 的进度\n"
-
-        def generate_content(records_, completions_, title):
+        def generate_content(records_, title):
             content_ = f"====={title}=====\n"
-            for i, record_ in enumerate(records_):
+            for i, (record_, completions_) in enumerate(records_):
                 if i == len(records_) - 1:
                     time_diff = 0
                 else:
-                    time_diff = records_[i + 1]['time'] - record_['time']
+                    time_diff = records_[i + 1][0]["time"] - record_["time"]
                 content_ += f"╔ {format_gruntime(record_['time'], True)} (-{diff_seconds_to_time(time_diff)})\n"
-                content_ += f"╠ {record_['points']}分　　{record_['teleports']} TPs \n"
-                content_ += f"╚ {datetime.strptime(record_['created_on'], '%Y-%m-%dT%H:%M:%S').strftime('%Y年%m月%d日 %H:%M')}\n"
-                if i < len(records_) - 1 and completions_[i + 1] > 0:
-                    content_ += f"--- {completions_[i + 1]} 次完成 ---\n"
+                content_ += f"╠ {record_['teleports']} TPs\n"
+                content_ += f"╚ {record_format_time(record_['created_on'])}\n"
+                if i < len(records_) - 1 and records_[i][1] > 0:
+                    content_ += f"--- {records_[i][1]} 次完成 ---\n"
             return content_
 
-        content += generate_content(tp_records, completions, 'TP')
-        content += generate_content(pro_records, completions, 'PRO')
+        if nub_records:
+            content += generate_content(personal_bests(nub_records), "TP")
+        if pro_records:
+            content += generate_content(personal_bests(pro_records), "PRO")
         # Add newline at start for group messages (bot will @ user automatically)
         if getattr(event, 'group_id', None):
             content = '\n' + content
