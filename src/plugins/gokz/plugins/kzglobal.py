@@ -20,11 +20,16 @@ from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
-from src.plugins.gokz.core.kreedz import format_kzmode, search_map
+from src.plugins.gokz.core.kreedz import format_kzmode
 from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
 from src.plugins.gokz.core.map_img_url import (
     get_cs2kz_preferred_map_img_path,
     get_map_img_url,
+)
+from src.plugins.gokz.core.map_selection import (
+    map_command,
+    map_selection_message,
+    resolve_map_name,
 )
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.core.rate_message import rate_selection_message
@@ -46,6 +51,14 @@ group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+
+
+def selected_gokz_command(command: str, map_name: str, cd: CommandData) -> str:
+    """Recreate a GOKZ query after a user chooses an ambiguous map."""
+    arguments = ("-m", str(cd.mode))
+    if cd.steamid2:
+        arguments += ("-s", cd.steamid)
+    return map_command(command, map_name, *arguments)
 
 
 def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str | None = None):
@@ -272,7 +285,15 @@ async def _(event: Event, args: Message = CommandArg()):
             return
         return await wr.send(MessageSegment.file_image(img_path) + MessageSegment.text(content))
 
-    map_name = search_map(cd.args[0])[0]
+    map_name, candidates = resolve_map_name(cd.args[0])
+    if candidates:
+        return await wr.finish(map_selection_message(
+            candidates,
+            lambda selected: selected_gokz_command("wr", selected, cd),
+            event.get_user_id(),
+        ))
+    if not map_name:
+        return await wr.finish("未找到该地图")
 
     kz_mode = cd.mode
 
@@ -409,7 +430,15 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
             pb_action_keyboard(event, cd, map_name, course), map_name,
         ))
 
-    map_name = search_map(cd.args[0])[0]
+    map_name, candidates = resolve_map_name(cd.args[0])
+    if candidates:
+        return await pb.finish(map_selection_message(
+            candidates,
+            lambda selected: selected_gokz_command("pb", selected, cd),
+            event.get_user_id(),
+        ))
+    if not map_name:
+        return await pb.finish("未找到该地图")
 
     content = dedent(f"""
         ╔ 地图:　{map_name}
@@ -702,11 +731,15 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     if not args:
         return await review.finish("🗺地图名都不给我怎么帮你查评价 (￣^￣) ")
     
-    map_search_results = search_map(args.extract_plain_text().strip())
-    if not map_search_results:
+    map_name, candidates = resolve_map_name(args.extract_plain_text().strip())
+    if candidates:
+        return await review.finish(map_selection_message(
+            candidates,
+            lambda selected: map_command("review", selected),
+            event.get_user_id(),
+        ))
+    if not map_name:
         return await review.finish("未找到该地图，请检查地图名是否正确。")
-    
-    map_name = map_search_results[0]
     
     BASE_URL = GOKZ_TOP_V1
     
@@ -844,11 +877,16 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     args_list = args_text.split()
     
     # Search for map name
-    map_search_results = search_map(args_list[0])
-    if not map_search_results:
+    map_name, candidates = resolve_map_name(args_list[0])
+    if candidates:
+        trailing_args = " ".join(args_list[1:])
+        return await rate.finish(map_selection_message(
+            candidates,
+            lambda selected: map_command("rate", selected, trailing_args),
+            event.get_user_id(),
+        ))
+    if not map_name:
         return await rate.finish("未找到该地图，请检查地图名是否正确。")
-    
-    map_name = map_search_results[0]
     
     maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
     if not isinstance(maps, list) or not maps:
@@ -910,10 +948,15 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
     if len(args_list) < 2 or not args_list[1].strip():
         return await comment.finish("用法: /comment map_name 评论内容")
 
-    map_search_results = search_map(args_list[0])
-    if not map_search_results:
+    map_name, candidates = resolve_map_name(args_list[0])
+    if candidates:
+        return await comment.finish(map_selection_message(
+            candidates,
+            lambda selected: map_command("comment", selected, args_list[1]),
+            event.get_user_id(),
+        ))
+    if not map_name:
         return await comment.finish("未找到该地图，请检查地图名是否正确。")
-    map_name = map_search_results[0]
 
     maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
     if not isinstance(maps, list) or not maps:

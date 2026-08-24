@@ -79,14 +79,24 @@ def format_runtime(time: float, cn=False) -> str:
 
 
 def search_map(map_name, threshold=0.2) -> list:
-    # First check for exact or substring matches
+    normalized_name = map_name.casefold()
+
+    # An exact match always wins, including when the caller used a different
+    # case.  This lets command handlers skip the disambiguation picker.
+    exact_matches = [
+        map_ for map_ in MAP_TIERS.keys() if map_.casefold() == normalized_name
+    ]
+    if exact_matches:
+        return exact_matches
+
+    # Then check for substring matches.
     exact_or_substring_matches = [
-        map_ for map_ in MAP_TIERS.keys() if map_name in map_
+        map_ for map_ in MAP_TIERS.keys() if normalized_name in map_.casefold()
     ]
 
-    # If exact or substring matches are found, return them sorted by proximity
+    # If substring matches are found, return them sorted by proximity.
     if exact_or_substring_matches:
-        exact_or_substring_matches.sort(key=lambda x: (x != map_name, x))
+        exact_or_substring_matches.sort()
         return exact_or_substring_matches
 
     # If no exact or substring matches are found, use difflib to find similar matches

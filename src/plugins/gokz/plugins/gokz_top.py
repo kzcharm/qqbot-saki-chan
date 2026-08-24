@@ -11,7 +11,12 @@ from sqlmodel import Session
 from src.plugins.gokz.core.command_helper import CommandData, parse_args
 from src.plugins.gokz.core.formatter import diff_seconds_to_time, format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
-from src.plugins.gokz.core.kreedz import format_kzmode, search_map
+from src.plugins.gokz.core.kreedz import format_kzmode
+from src.plugins.gokz.core.map_selection import (
+    map_command,
+    map_selection_message,
+    resolve_map_name,
+)
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from ..api import cs2kz
@@ -178,10 +183,18 @@ async def map_progress(event: Event, args: Message = CommandArg()):
             content += f"╔ {format_gruntime(record['time'], True)} | {record['teleports']} TPs | #{cs2kz.record_rank(record) or '-'}\n"
         return await progress.finish(content)
 
-    map_matches = search_map(cd.args[0])
-    if not map_matches:
+    map_name, candidates = resolve_map_name(cd.args[0])
+    if candidates:
+        query_arguments = ("-m", str(cd.mode))
+        if cd.steamid2:
+            query_arguments += ("-s", cd.steamid)
+        return await progress.finish(map_selection_message(
+            candidates,
+            lambda selected: map_command("mp", selected, *query_arguments),
+            event.get_user_id(),
+        ))
+    if not map_name:
         return await progress.finish("未找到该地图")
-    map_name = map_matches[0]
 
     maps = await fetch_json(f"{BASE}/maps", params={"name": map_name, "limit": 10})
     if not isinstance(maps, list) or not maps:
