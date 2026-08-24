@@ -13,6 +13,7 @@ from src.plugins.gokz.core.game import format_cs2kz_mode, format_cs2kz_mode_labe
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import verify_binding_code
 from src.plugins.gokz.core.binding_message import binding_help_message
+from src.plugins.gokz.core.mode_message import mode_selection_message
 from src.plugins.gokz.config import QQ_BOT_SECRET
 from ..api.helper import fetch_json
 from ..core.command_helper import CommandData
@@ -151,7 +152,7 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
 
 @mode.handle()
 async def update_mode(event: MessageEvent, args: Message = CommandArg()):
-    mode_ = args.extract_plain_text()
+    mode_ = args.extract_plain_text().strip()
     with Session(engine) as session:
         user = session.get(User, event.get_user_id())
     if not user:
@@ -159,10 +160,15 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
 
     if not mode_:
         current = format_cs2kz_mode_label(user.cs2kz_mode) if user.game == "cs2kz" else format_kzmode(user.mode, "m").upper()
-        return await mode.finish(f"当前模式为: {current}")
+        return await mode.finish(mode_selection_message(user.game, current))
+
+    selected_game = user.game
+    parts = mode_.split(maxsplit=1)
+    if len(parts) == 2 and parts[0].lower() in {"gokz", "cs2kz"}:
+        selected_game, mode_ = parts[0].lower(), parts[1]
 
     try:
-        mode_ = format_cs2kz_mode_label(mode_) if getattr(user, "game", "gokz") == "cs2kz" else format_kzmode(mode_, "m").upper()
+        mode_ = format_cs2kz_mode_label(mode_) if selected_game == "cs2kz" else format_kzmode(mode_, "m").upper()
     except ValueError:
         return await mode.finish("模式格式不正确")
 
@@ -172,7 +178,8 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
         if not user:
             return await mode.finish(binding_help_message())
 
-        if user.game == "cs2kz":
+        user.game = selected_game
+        if selected_game == "cs2kz":
             user.cs2kz_mode = mode_
         else:
             user.mode = mode_
@@ -180,7 +187,7 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
         session.commit()
         session.refresh(user)
 
-    await mode.finish(f"模式已更新为: {mode_}")
+    await mode.finish(mode_selection_message(selected_game, mode_))
 
 
 @game.handle()
