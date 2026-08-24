@@ -27,6 +27,7 @@ from src.plugins.gokz.core.map_img_url import (
     get_map_img_url,
 )
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
+from src.plugins.gokz.core.rate_message import rate_selection_message
 from ..config import GOKZ_TOP_API_KEY
 
 pb = on_command('pb', aliases={'personal-best'})
@@ -37,6 +38,7 @@ ban_ = on_command('ban')
 rank = on_command('rank')
 review = on_command('review', aliases={'评价', '评论'})
 rate = on_command('rate', aliases={'评分', '评价地图'})
+comment = on_command('comment', aliases={'地图评论'})
 update_map_info = on_command('update_map', permission=SUPERUSER)
 
 private_map_names: dict[int, str] = {}  # For private messages
@@ -734,7 +736,10 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
             for idx, comment_item in enumerate(comments_list[:5], 1):
                 player_name = comment_item.get('player', {}).get('display_name', '未知玩家')
                 review_content = comment_item.get('content', {})
-                comment_text = review_content.get('comment', {}).get('text', '')
+                comment_value = review_content.get('comment')
+                comment_text = (
+                    comment_value.get('text', '') if isinstance(comment_value, dict) else comment_value or ''
+                )
                 
                 # Get overall rating from ratings array
                 overall_rating = review_content.get('overall')
@@ -782,9 +787,6 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     args_text = args.extract_plain_text().strip()
     args_list = args_text.split()
     
-    if len(args_list) < 2:
-        return await rate.finish("用法: /rate map_name overall_star [comments]\n或: /rate map_name overall_star gameplay_star visual_star [comments]\n或: /rate map_name comments")
-    
     # Search for map name
     map_search_results = search_map(args_list[0])
     if not map_search_results:
@@ -795,6 +797,21 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
     if not isinstance(maps, list) or not maps:
         return await rate.finish("未找到该地图，请检查地图名是否正确。")
+
+    if len(args_list) < 2:
+        reviews = await fetch_json(
+            f"{GOKZ_TOP_V1}/maps/reviews",
+            params={"map_id": maps[0]["id"], "steamid64": cd.steamid, "limit": 1},
+            timeout=30,
+        )
+        current_rating = None
+        if isinstance(reviews, dict):
+            review_data = reviews.get("data")
+            if isinstance(review_data, list) and review_data:
+                content = review_data[0].get("content")
+                if isinstance(content, dict) and isinstance(content.get("overall"), int):
+                    current_rating = content["overall"]
+        return await rate.finish(rate_selection_message(map_name, current_rating))
 
     try:
         overall_star = int(args_list[1])
@@ -807,8 +824,8 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
 
     comment_start = 4 if visual_star is not None else 2
     content = {"overall": overall_star, "gameplay": gameplay_star, "visuals": visual_star}
-    if comment := ' '.join(args_list[comment_start:]):
-        content["comment"] = {"text": comment}
+    if comment_text := ' '.join(args_list[comment_start:]):
+        content["comment"] = comment_text
     result = await put_json(
         f"{GOKZ_TOP_V1}/maps/reviews",
         json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
@@ -824,6 +841,52 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
         content = '\n' + content
     
     await rate.finish(content)
+
+
+@comment.handle()
+async def handle_comment(event: Event, args: Message = CommandArg()):
+    """Attach or update a comment without changing the user's star rating."""
+    cd = CommandData(event, args)
+    if cd.error:
+        return await comment.finish(cd.error)
+
+    args_list = args.extract_plain_text().strip().split(maxsplit=1)
+    if len(args_list) < 2 or not args_list[1].strip():
+        return await comment.finish("用法: /comment map_name 评论内容")
+
+    map_search_results = search_map(args_list[0])
+    if not map_search_results:
+        return await comment.finish("未找到该地图，请检查地图名是否正确。")
+    map_name = map_search_results[0]
+
+    maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
+    if not isinstance(maps, list) or not maps:
+        return await comment.finish("未找到该地图，请检查地图名是否正确。")
+
+    reviews = await fetch_json(
+        f"{GOKZ_TOP_V1}/maps/reviews",
+        params={"map_id": maps[0]["id"], "steamid64": cd.steamid, "limit": 1},
+        timeout=30,
+    )
+    review_data = reviews.get("data") if isinstance(reviews, dict) else None
+    existing_content = review_data[0].get("content") if isinstance(review_data, list) and review_data else None
+    if not isinstance(existing_content, dict) or not isinstance(existing_content.get("overall"), int):
+        return await comment.finish("请先使用 /rate 地图名 星级 评分，再使用 /comment 写评论。")
+
+    result = await put_json(
+        f"{GOKZ_TOP_V1}/maps/reviews",
+        json_data={
+            "map_id": maps[0]["id"],
+            "steamid64": cd.steamid,
+            "content": {**existing_content, "comment": args_list[1].strip()},
+        },
+        headers={"Authorization": f"Bearer {GOKZ_TOP_API_KEY}"} if GOKZ_TOP_API_KEY else None,
+        timeout=30,
+    )
+    if not isinstance(result, dict) or result.get("detail"):
+        detail = result.get("detail", "请稍后再试。") if isinstance(result, dict) else "请稍后再试。"
+        return await comment.finish(f"提交评论失败: {detail}")
+    await comment.finish(f"✅ 已为地图 {map_name} 提交评论。")
 
 
 @kz.handle()
