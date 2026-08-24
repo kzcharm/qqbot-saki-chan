@@ -58,6 +58,16 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
     mode = f" -m {cd.mode}" if cd.mode else ""
     game = " -2" if cd.game == "cs2kz" else ""
     course_arg = f" -c {course}" if course and cd.game == "cs2kz" and course != "Main" else ""
+    target_arg = f" -s {cd.steamid}" if cd.steamid2 and cd.steamid != cd.steamid2 else ""
+    if cd.game == "cs2kz":
+        other_modes = [("VNL", "vanilla")] if cd.mode == "classic" else [("CKZ", "classic")]
+    else:
+        current_mode = format_kzmode(cd.mode, "m")
+        other_modes = [
+            (label, value)
+            for label, value in (("KZT", "kzt"), ("SKZ", "skz"), ("VNL", "vnl"))
+            if value != current_mode
+        ]
     actions = []
     if getattr(event, "group_id", None) and cd.steamid2 and cd.steamid != cd.steamid2:
         actions.append(
@@ -100,7 +110,47 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
                 enter=False,
             )
         )
-    return KeyboardBuilder.keyboard(actions)
+    actions.append(
+        KeyboardBuilder.button(
+            id="pb_progress",
+            label="查询地图进度",
+            visited_label="查询中",
+            style=1,
+            action_type=2,
+            permission_type=2,
+            action_data=f"/mp {map_name}{mode}{game}{course_arg}{target_arg}",
+            reply=True,
+            enter=True,
+        )
+    )
+    actions.extend(
+        KeyboardBuilder.button(
+            id=f"pb_{other_mode}",
+            label=f"查询{label}",
+            visited_label="查询中",
+            style=1,
+            action_type=2,
+            permission_type=2,
+            action_data=f"/pb {map_name} -m {other_mode}{game}{course_arg}{target_arg}",
+            reply=True,
+            enter=True,
+        )
+        for label, other_mode in other_modes
+    )
+    actions.append(
+        KeyboardBuilder.button(
+            id="pb_rate",
+            label="为地图评分",
+            visited_label="打开评分",
+            style=1,
+            action_type=2,
+            permission_type=2,
+            action_data=f"/rate {map_name}",
+            reply=True,
+            enter=True,
+        )
+    )
+    return KeyboardBuilder.keyboard(*(actions[index:index + 2] for index in range(0, len(actions), 2)))
 
 
 def pb_keyboard_message(keyboard, map_name: str):
@@ -293,9 +343,14 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
             "╚ CS2KZ ═══",
         ))
         img_path = await get_cs2kz_preferred_map_img_path(data['map']['name'])
-        if not img_path:
-            return
-        return await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
+        if img_path:
+            await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
+        else:
+            await bot.send(event, MessageSegment.text(content))
+        return await bot.send(event, pb_keyboard_message(
+            pb_action_keyboard(event, cd, data['map']['name'], data['course']['name']),
+            data['map']['name'],
+        ))
 
     data = await fetch_personal_recent(cd.steamid, cd.mode)
 
@@ -320,6 +375,7 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         combined_message = MessageSegment.text(content)
 
     await bot.send(event, combined_message)
+    await bot.send(event, pb_keyboard_message(pb_action_keyboard(event, cd, data['map_name']), data['map_name']))
 
 
 @pb.handle()
