@@ -63,10 +63,13 @@ jobs:
       - name: Prepare deployment environment
         env:
           QQBOT_PROD_ENV: ${{ secrets.QQBOT_PROD_ENV }}
+          QQ_BOT_SECRET: ${{ secrets.QQ_BOT_SECRET }}
         run: |
           test -n "$QQBOT_PROD_ENV"
+          test -n "$QQ_BOT_SECRET"
           printf '%s\n' "$QQBOT_PROD_ENV" > .env.deploy
           {
+            printf 'QQ_BOT_SECRET=%s\n' "$QQ_BOT_SECRET"
             printf 'IMAGE_REPO=%s\n' "$IMAGE_REPO"
             printf 'IMAGE_TAG=sha-%s\n' "$GITHUB_SHA"
             printf 'QQBOT_DATA_DIR=/opt/qqbot-saki-chan/data\n'
