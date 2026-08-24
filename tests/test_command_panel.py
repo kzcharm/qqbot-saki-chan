@@ -21,6 +21,7 @@ class TestCommandPanel(unittest.TestCase):
     def test_help_image_descriptions_are_used(self):
         self.assertEqual(COMMAND_DESCRIPTIONS["pb"], "查询地图个人最佳")
         self.assertEqual(COMMAND_DESCRIPTIONS["wr"], "查询地图世界记录")
+        self.assertEqual(COMMAND_DESCRIPTIONS["profile"], "查看玩家资料与链接")
 
     def test_panel_payload_contains_descriptions(self):
         panel = _panel_payload([("/help", "查看帮助", False)], 1)

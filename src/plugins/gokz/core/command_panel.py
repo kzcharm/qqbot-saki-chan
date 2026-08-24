@@ -28,6 +28,7 @@ COMMAND_DESCRIPTIONS = {
     "mode": "切换默认 KZ 模式",
     "game": "切换默认游戏",
     "info": "查看已绑定账号信息",
+    "profile": "查看玩家资料与链接",
     "kz": "生成 kzgo.eu 截图",
     "pb": "查询地图个人最佳",
     "pr": "查询最近跳图记录",

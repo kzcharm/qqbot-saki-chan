@@ -1,4 +1,6 @@
+import asyncio
 import json
+from pathlib import Path
 from textwrap import dedent
 
 from nonebot import on_command, logger
@@ -13,6 +15,7 @@ from src.plugins.gokz.core.game import format_cs2kz_mode, format_cs2kz_mode_labe
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import verify_binding_code
 from src.plugins.gokz.core.binding_message import binding_help_message
+from src.plugins.gokz.core.profile import profile_markdown
 from src.plugins.gokz.core.mode_message import mode_selection_message
 from src.plugins.gokz.config import QQ_BOT_SECRET
 from ..api.helper import fetch_json
@@ -30,6 +33,44 @@ test = on_command("test")
 markdown_test = on_command("markdown_test", aliases={"测试Markdown"})
 help_ = on_command('help', aliases={"帮助"})
 info = on_command("info")
+profile = on_command("profile", aliases={"资料"})
+
+GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+
+
+@profile.handle()
+async def _(event: MessageEvent, args: Message = CommandArg()):
+    """Show a GOKZ.TOP player overview and their verified public links."""
+    cd = CommandData(event, args)
+    if cd.error:
+        return await profile.finish(cd.error)
+
+    player_url = f"{GOKZ_TOP_V1}/players/{cd.steamid}"
+    social_links_url = f"{player_url}/social-links"
+    player_data, social_links = await asyncio.gather(
+        fetch_json(player_url, timeout=30),
+        fetch_json(social_links_url, timeout=30),
+    )
+    if not isinstance(player_data, dict) or player_data.get("detail") or not player_data.get("steamid64"):
+        return await profile.finish("未找到 GOKZ.TOP 玩家资料，或 API 暂时不可用，请稍后再试。")
+
+    scope = player_data.get("primary_scope") or player_data.get("primary_mode")
+    stats, jumpstats, achievements, leaderboard = await asyncio.gather(
+        fetch_json(f"{player_url}/stats", timeout=30),
+        fetch_json(f"{player_url}/jumpstats", params={"type": "LJ", "limit": 1, "sort_by": "distance", "sort_order": "desc"}, timeout=30),
+        fetch_json(f"{player_url}/tournament-achievements", timeout=30),
+        fetch_json(f"{GOKZ_TOP_V1}/leaderboards/players/{cd.steamid}", params={"scope": scope} if scope else None, timeout=30),
+    )
+    links = social_links if isinstance(social_links, list) else []
+    content = profile_markdown(
+        player_data,
+        links,
+        stats=stats if isinstance(stats, dict) else None,
+        jumpstats=jumpstats if isinstance(jumpstats, dict) else None,
+        achievements=achievements if isinstance(achievements, dict) else None,
+        leaderboard=leaderboard if isinstance(leaderboard, dict) and not leaderboard.get("detail") else None,
+    )
+    await profile.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
 
 
 @info.handle()
