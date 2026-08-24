@@ -64,12 +64,21 @@ jobs:
         env:
           QQBOT_PROD_ENV: ${{ secrets.QQBOT_PROD_ENV }}
           QQ_BOT_SECRET: ${{ secrets.QQ_BOT_SECRET }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+          FISH_AUDIO_REFERENCE_ID: ${{ secrets.FISH_AUDIO_REFERENCE_ID }}
         run: |
           test -n "$QQBOT_PROD_ENV"
           test -n "$QQ_BOT_SECRET"
+          test -n "$DEEPSEEK_API_KEY"
+          test -n "$FISH_AUDIO_API_KEY"
+          test -n "$FISH_AUDIO_REFERENCE_ID"
           printf '%s\n' "$QQBOT_PROD_ENV" > .env.deploy
           {
             printf 'QQ_BOT_SECRET=%s\n' "$QQ_BOT_SECRET"
+            printf 'DEEPSEEK_API_KEY=%s\n' "$DEEPSEEK_API_KEY"
+            printf 'FISH_AUDIO_API_KEY=%s\n' "$FISH_AUDIO_API_KEY"
+            printf 'FISH_AUDIO_REFERENCE_ID=%s\n' "$FISH_AUDIO_REFERENCE_ID"
             printf 'IMAGE_REPO=%s\n' "$IMAGE_REPO"
             printf 'IMAGE_TAG=sha-%s\n' "$GITHUB_SHA"
             printf 'QQBOT_DATA_DIR=/opt/qqbot-saki-chan/data\n'

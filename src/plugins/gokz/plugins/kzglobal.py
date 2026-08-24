@@ -6,7 +6,7 @@ from urllib.parse import quote
 from textwrap import dedent
 from zoneinfo import ZoneInfo
 
-from nonebot import on_command, logger
+from nonebot import get_driver, on_command, logger
 from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
@@ -33,7 +33,11 @@ from src.plugins.gokz.core.map_selection import (
 )
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.core.rate_message import rate_selection_message
-from ..config import GOKZ_TOP_API_KEY
+from src.plugins.gokz.core.pr_compliment import (
+    is_notable_run,
+    maybe_send_pr_compliment,
+)
+from ..config import GOKZ_TOP_API_KEY, environment
 
 pb = on_command('pb', aliases={'personal-best'})
 pr = on_command('pr')
@@ -51,6 +55,14 @@ group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+
+
+def is_dev_superuser(event: Event) -> bool:
+    """Allow repeatable voice tests without weakening production safeguards."""
+    return (
+        environment.lower() == "dev"
+        and event.get_user_id() in get_driver().config.superusers
+    )
 
 
 def selected_gokz_command(command: str, map_name: str, cd: CommandData) -> str:
@@ -389,13 +401,17 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
             data['map']['name'],
         ))
 
+    # Keep GlobalAPI as the source of the normal `/pr` response. GOKZ Top is
+    # contacted only later, after this response is sent, for T6+ history checks.
     data = await fetch_personal_recent(cd.steamid, cd.mode)
+    player_name = data.get("player_name", "未知玩家")
+    map_tier = MAP_TIERS.get(data["map_name"], "未知")
 
     content = dedent(f"""
         ╔ 地图:　　{data['map_name']}
-        ║ 难度:　　T{MAP_TIERS.get(data['map_name'], '未知')}
+        ║ 难度:　　T{map_tier}
         ║ 模式:　　{format_kzmode(cd.mode, 'm').upper()}
-        ║ 玩家:　　{data['player_name']} 
+        ║ 玩家:　　{player_name}
         ║ 用时:　　{format_gruntime(data['time'])}
         ║ 存点数:　{data['teleports']}
         ║ 分数:　　{data['points']}
@@ -413,6 +429,18 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
 
     await bot.send(event, combined_message)
     await bot.send(event, pb_keyboard_message(pb_action_keyboard(event, cd, data['map_name']), data['map_name']))
+    compliment_record = {**data, "map_tier": map_tier}
+    force_compliment = is_dev_superuser(event)
+    if force_compliment or is_notable_run(compliment_record):
+        asyncio.create_task(
+            maybe_send_pr_compliment(
+                bot,
+                event,
+                compliment_record,
+                cd.steamid,
+                force=force_compliment,
+            )
+        )
 
 
 @pb.handle()

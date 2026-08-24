@@ -17,14 +17,19 @@ def load_models():
 
 
 class SQLiteModelsTest(unittest.TestCase):
-    def test_only_user_table_is_created(self):
+    def test_user_and_compliment_tables_are_created(self):
         models = load_models()
         engine = create_engine("sqlite://")
         SQLModel.metadata.create_all(engine)
 
-        self.assertEqual(inspect(engine).get_table_names(), ["qqbot_users"])
+        self.assertEqual(
+            inspect(engine).get_table_names(),
+            ["qqbot_complimented_runs", "qqbot_users"],
+        )
 
         with Session(engine) as session:
             session.add(models.User(qid="qid", name="name", steamid="steamid"))
+            session.add(models.ComplimentedRun(record_id=123))
             session.commit()
             self.assertEqual(session.get(models.User, "qid").steamid, "steamid")
+            self.assertIsNotNone(session.get(models.ComplimentedRun, 123))
