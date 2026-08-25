@@ -963,7 +963,15 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     comment_start = 4 if visual_star is not None else 2
     content = {"overall": overall_star, "gameplay": gameplay_star, "visuals": visual_star}
     if comment_text := ' '.join(args_list[comment_start:]):
-        content["comment"] = comment_text
+        # The review API models comments as an object (currently ``text``),
+        # rather than accepting a bare string.
+        content["comment"] = {"text": comment_text}
+    comment_value = args_list[1].strip()
+    if isinstance(existing_content.get("comment"), dict):
+        comment_value = {**existing_content["comment"], "text": comment_value}
+    else:
+        comment_value = {"text": comment_value}
+
     result = await put_json(
         f"{GOKZ_TOP_V1}/maps/reviews",
         json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
@@ -1023,7 +1031,7 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
         json_data={
             "map_id": maps[0]["id"],
             "steamid64": cd.steamid,
-            "content": {**existing_content, "comment": args_list[1].strip()},
+            "content": {**existing_content, "comment": comment_value},
         },
         headers={"X-QQ-Bot-Key": QQ_BOT_SECRET} if QQ_BOT_SECRET else None,
         timeout=30,
