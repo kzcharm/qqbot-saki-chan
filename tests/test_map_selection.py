@@ -43,6 +43,33 @@ class TestMapSelection(unittest.TestCase):
         self.map_selection.search_map = lambda _: []
         self.assertEqual(self.map_selection.resolve_map_name("missing"), (None, []))
 
+    def test_unique_prefix_stripped_exact_match_bypasses_picker(self):
+        self.map_selection.search_map = lambda _: ["vnl_sewer", "kz_skytower"]
+
+        self.assertEqual(self.map_selection.resolve_map_name("sewer"), ("vnl_sewer", []))
+
+    def test_fuzzy_match_uses_basename_and_locks_on_clear_leader(self):
+        self.map_selection.search_map = lambda _: [
+            "kz_lionheart",
+            "kz_lionharder",
+            "kz_dishonest",
+            "kz_slide_concrete",
+        ]
+
+        self.assertEqual(self.map_selection.resolve_map_name("lionhert"), ("kz_lionheart", []))
+
+    def test_multiple_prefix_stripped_exact_matches_are_the_only_choices(self):
+        self.map_selection.search_map = lambda _: [
+            "vnl_sewer",
+            "kz_sewer",
+            "kz_skytower",
+        ]
+
+        self.assertEqual(
+            self.map_selection.resolve_map_name("sewer"),
+            (None, ["vnl_sewer", "kz_sewer"]),
+        )
+
     def test_ambiguous_match_is_limited_to_five_candidates(self):
         matches = [f"kz_map_{index}" for index in range(6)]
         self.map_selection.search_map = lambda _: matches
