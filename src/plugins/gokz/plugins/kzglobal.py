@@ -966,12 +966,6 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
         # The review API models comments as an object (currently ``text``),
         # rather than accepting a bare string.
         content["comment"] = {"text": comment_text}
-    comment_value = args_list[1].strip()
-    if isinstance(existing_content.get("comment"), dict):
-        comment_value = {**existing_content["comment"], "text": comment_value}
-    else:
-        comment_value = {"text": comment_value}
-
     result = await put_json(
         f"{GOKZ_TOP_V1}/maps/reviews",
         json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
@@ -1025,6 +1019,12 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
     existing_content = review_data[0].get("content") if isinstance(review_data, list) and review_data else None
     if not isinstance(existing_content, dict) or not isinstance(existing_content.get("overall"), int):
         return await comment.finish("请先使用 /rate 地图名 星级 评分，再使用 /comment 写评论。")
+
+    comment_text = args_list[1].strip()
+    if isinstance(existing_content.get("comment"), dict):
+        comment_value = {**existing_content["comment"], "text": comment_text}
+    else:
+        comment_value = {"text": comment_text}
 
     result = await put_json(
         f"{GOKZ_TOP_V1}/maps/reviews",
