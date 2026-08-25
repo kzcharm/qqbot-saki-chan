@@ -37,7 +37,7 @@ from src.plugins.gokz.core.pr_compliment import (
     is_notable_run,
     maybe_send_pr_compliment,
 )
-from ..config import GOKZ_TOP_API_KEY, environment
+from ..config import GOKZ_TOP_API_KEY, QQ_BOT_SECRET, environment
 
 pb = on_command('pb', aliases={'personal-best'})
 pr = on_command('pr')
@@ -967,7 +967,9 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     result = await put_json(
         f"{GOKZ_TOP_V1}/maps/reviews",
         json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
-        headers={"Authorization": f"Bearer {GOKZ_TOP_API_KEY}"} if GOKZ_TOP_API_KEY else None,
+        # Bot-authenticated review writes use the active binding secret.  The
+        # API deliberately does not accept the legacy GOKZ_TOP_API_KEY here.
+        headers={"X-QQ-Bot-Key": QQ_BOT_SECRET} if QQ_BOT_SECRET else None,
         timeout=30,
     )
     if not isinstance(result, dict) or result.get("detail"):
@@ -1023,7 +1025,7 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
             "steamid64": cd.steamid,
             "content": {**existing_content, "comment": args_list[1].strip()},
         },
-        headers={"Authorization": f"Bearer {GOKZ_TOP_API_KEY}"} if GOKZ_TOP_API_KEY else None,
+        headers={"X-QQ-Bot-Key": QQ_BOT_SECRET} if QQ_BOT_SECRET else None,
         timeout=30,
     )
     if not isinstance(result, dict) or result.get("detail"):
