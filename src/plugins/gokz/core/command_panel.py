@@ -19,6 +19,7 @@ PANEL_REMARK_PREFIX = "gokz-qqbot commands"
 PANEL_ITEM_LIMIT = 20
 PANEL_SCOPES = ("c2c", "group")
 PANEL_EXCLUDED_COMMANDS = {"test", "markdown_test"}
+PANEL_FEATURED_COMMANDS = ("daily",)
 
 # Derived from data/gokz/help.png. Keep descriptions short: QQ limits them to
 # 30 characters and command names to 14 characters.
@@ -36,6 +37,7 @@ COMMAND_DESCRIPTIONS = {
     "rank": "查询 gokz.top 排名",
     "pk": "与他人进行 Rank PK",
     "mp": "查询地图进步情况",
+    "daily": "获取今日开荒与挑战地图",
     "ccf": "查询常玩服务器",
     "find": "通过昵称查找玩家",
     "pw": "查询完美平台数据",
@@ -92,6 +94,11 @@ def _primary_command(matcher: type[Any], names: tuple[str, ...]) -> str:
     return names[0]
 
 
+def _prioritize_commands(commands: list[tuple[str, str, bool]]) -> list[tuple[str, str, bool]]:
+    featured = [item for item in commands if item[0].removeprefix("/") in PANEL_FEATURED_COMMANDS]
+    return featured + [item for item in commands if item not in featured]
+
+
 def collect_commands() -> list[tuple[str, str, bool]]:
     """Collect project commands, keeping command names ahead of aliases."""
     primary: list[tuple[str, str, bool]] = []
@@ -119,7 +126,7 @@ def collect_commands() -> list[tuple[str, str, bool]]:
                 seen.add(panel_name)
                 bucket.append((panel_name, description, only_admin))
 
-    return (primary + aliases)[:PANEL_ITEM_LIMIT]
+    return _prioritize_commands(primary + aliases)[:PANEL_ITEM_LIMIT]
 
 
 async def _request(bot: Bot, method: str, path: str, **kwargs: Any) -> Any:
