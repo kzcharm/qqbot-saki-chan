@@ -17,14 +17,23 @@ def load_models():
 
 
 class SQLiteModelsTest(unittest.TestCase):
-    def test_user_and_compliment_tables_are_created(self):
+    def test_user_compliment_and_daily_map_tables_are_created(self):
         models = load_models()
         engine = create_engine("sqlite://")
         SQLModel.metadata.create_all(engine)
 
         self.assertEqual(
             inspect(engine).get_table_names(),
-            ["qqbot_complimented_runs", "qqbot_users"],
+            [
+                "qqbot_complimented_runs",
+                "qqbot_daily_map_assignments",
+                "qqbot_daily_map_cache",
+                "qqbot_users",
+            ],
+        )
+        self.assertEqual(
+            inspect(engine).get_unique_constraints("qqbot_daily_map_assignments")[0]["column_names"],
+            ["qid", "assignment_date", "daily_type"],
         )
 
         with Session(engine) as session:

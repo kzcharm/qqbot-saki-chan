@@ -17,6 +17,8 @@ from src.plugins.gokz.core.map_selection import (
     map_selection_message,
     resolve_map_name,
 )
+from src.plugins.gokz.core.daily_map import get_daily_maps, utc_today
+from src.plugins.gokz.core.daily_map_message import daily_map_message
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from ..api import cs2kz
@@ -30,6 +32,22 @@ ccf = on_command('ccf', aliases={'查成分'})
 pk = on_command('pk', aliases={'pk'})
 find = on_command('find', aliases={'查找'})
 group_rank = on_command('群排名', aliases={'group_rank'}, permission=SUPERUSER)
+daily = on_command('daily', aliases={'每日地图'})
+
+
+@daily.handle()
+async def daily_map(event: Event, args: Message = CommandArg()):
+    cd = CommandData(event, args)
+    if cd.error:
+        return await daily.finish(cd.error)
+    if cd.game == "cs2kz":
+        return await daily.finish("每日地图目前仅支持 GOKZ。")
+
+    assignments = await get_daily_maps(cd.qid, cd.steamid, format_kzmode(cd.mode, "m").upper())
+    if assignments is None:
+        return await daily.finish("每日地图数据暂时不可用，请稍后再试。")
+
+    await daily.finish(daily_map_message(assignments, utc_today()))
 
 
 @find.handle()
