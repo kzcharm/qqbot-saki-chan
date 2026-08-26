@@ -53,7 +53,7 @@ class TestPbActionKeyboard(unittest.TestCase):
         self.assertEqual(first_button.id, "pb_self")
         self.assertEqual(first_button.render_data.label, "查询我的记录")
         self.assertEqual(first_button.action.data, "/pb kz_surf_larry -m KZT")
-        self.assertEqual([len(row.buttons) for row in rows], [2, 2, 3])
+        self.assertEqual([len(row.buttons) for row in rows], [2, 2, 2, 2])
 
     def test_private_query_does_not_include_self_record_action(self):
         event = SimpleNamespace()

@@ -22,6 +22,7 @@ from src.plugins.gokz.core.daily_map_message import daily_map_message
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from ..api import cs2kz
+from ..api.gokz_top import GOKZTopAPIError, fetch_run_history
 from ..api.helper import fetch_json
 from nonebot.adapters.qq import MessageSegment
 
@@ -220,68 +221,20 @@ async def map_progress(event: Event, args: Message = CommandArg()):
     map_data = next((item for item in maps if item.get("name") == map_name), maps[0])
 
     scope = format_kzmode(cd.mode, "m").upper()
-    history_url = f"{BASE}/records/run-history"
-    nub_history, pro_history = await asyncio.gather(
-        fetch_json(
-            history_url,
-            params={"identifier": cd.steamid, "map_id": map_data["id"], "stage": 0, "scope": scope, "type": "NUB"},
-        ),
-        fetch_json(
-            history_url,
-            params={"identifier": cd.steamid, "map_id": map_data["id"], "stage": 0, "scope": scope, "type": "PRO"},
-        ),
+    histories = await asyncio.gather(
+        fetch_run_history(cd.steamid, map_data["id"], scope, "NUB"),
+        fetch_run_history(cd.steamid, map_data["id"], scope, "PRO"),
+        return_exceptions=True,
     )
-
-    # If gokz.top API fails, try kztimerglobal as fallback (limited functionality)
-    if nub_history is None and pro_history is None:
-        logger.info(f"gokz.top API unavailable, trying kztimerglobal fallback for {cd.steamid} on {map_name}")
-        try:
-            from ..api.kztimerglobal import fetch_personal_best
-            # kztimerglobal only returns best records, not all records
-            tp_record = await fetch_personal_best(cd.steamid, map_name, cd.mode, has_tp=True)
-            pro_record = await fetch_personal_best(cd.steamid, map_name, cd.mode, has_tp=False)
-            
-            if not tp_record and not pro_record:
-                return await progress.finish(f"你尚未完成过{map_name}（使用kztimerglobal数据）")
-            
-            # Build limited content with only best records
-            content = f"玩家: {tp_record.get('player_name', pro_record.get('player_name', '未知'))}\n"
-            content += f"在地图: {map_name}\n模式: {format_kzmode(cd.mode, 'm').upper()} 的进度（仅显示最佳记录）\n"
-            content += "\n注意: gokz-top API不可用，仅显示最佳记录\n"
-            
-            if tp_record:
-                time_field = tp_record.get('created_on') or tp_record.get('updated_on', '')
-                content += f"=====TP=====\n"
-                content += f"╔ {format_gruntime(tp_record['time'], True)}\n"
-                content += f"╠ {tp_record.get('points', 0)}分　　{tp_record.get('teleports', 0)} TPs\n"
-                if time_field:
-                    content += f"╚ {record_format_time(time_field)}\n"
-                else:
-                    content += f"╚ 时间未知\n"
-            
-            if pro_record:
-                time_field = pro_record.get('created_on') or pro_record.get('updated_on', '')
-                content += f"\n=====PRO=====\n"
-                content += f"╔ {format_gruntime(pro_record['time'], True)}\n"
-                content += f"╠ {pro_record.get('points', 0)}分\n"
-                if time_field:
-                    content += f"╚ {record_format_time(time_field)}\n"
-                else:
-                    content += f"╚ 时间未知\n"
-            
-            # Add newline at start for group messages (bot will @ user automatically)
-            if getattr(event, 'group_id', None):
-                content = '\n' + content
-            return await progress.finish(content)
-        except Exception as e:
-            logger.error(f"Fallback to kztimerglobal also failed: {e}")
-            return await progress.finish("API服务暂时不可用，请稍后再试。")
-
-    # A partial API failure should not hide the other history type.
-    nub_history = nub_history or {"data": []}
-    pro_history = pro_history or {"data": []}
-    if not isinstance(nub_history, dict) or not isinstance(pro_history, dict):
-        return await progress.finish("解析数据失败，请稍后再试。")
+    nub_history, pro_history = histories
+    if isinstance(nub_history, GOKZTopAPIError) and isinstance(pro_history, GOKZTopAPIError):
+        return await progress.finish("GOKZ.TOP API服务暂时不可用，请稍后再试。")
+    if isinstance(nub_history, GOKZTopAPIError):
+        logger.warning("Unable to fetch NUB run history: %s", nub_history)
+        nub_history = {"data": []}
+    if isinstance(pro_history, GOKZTopAPIError):
+        logger.warning("Unable to fetch PRO run history: %s", pro_history)
+        pro_history = {"data": []}
 
     # NUB history includes every normal completion, including PRO runs.  Keep
     # only teleported runs here; the dedicated PRO history supplies zero-TP runs.

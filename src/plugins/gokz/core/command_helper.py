@@ -82,7 +82,9 @@ class CommandData:
                 return
         else:
             try:
-                self.mode = format_kzmode(parsed_args.get('mode') or user.mode)
+                # Keep the query scope so OVR is not reduced to its KZT
+                # concrete-mode fallback before the command handler sees it.
+                self.mode = format_kzmode(parsed_args.get('mode') or user.mode, "m")
             except ValueError:
                 self.error = "模式格式不正确"
                 return

@@ -47,7 +47,6 @@ COMMAND_DESCRIPTIONS = {
     "api": "查询 GlobalAPI 状态",
     "group_rank": "更新群排名",
     "群排名": "更新群排名",
-    "update_map": "更新地图信息",
     "test": "测试指令",
     "markdown_test": "测试 Markdown 消息",
 }

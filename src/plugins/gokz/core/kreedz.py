@@ -4,10 +4,13 @@ from src.plugins.gokz.core.config import MAP_TIERS
 
 
 def format_kzmode(mode, form="full") -> int | str:
-    """return kz_timer, kz_simple or kz_vanilla in the specified format"""
+    """Return the concrete mode plus the GOKZ.TOP query scope."""
     if isinstance(mode, str):
         mode = mode.lower()
     mode_mapping = {
+        # OVR is a GOKZ.TOP aggregate scope. Consumers which require a
+        # concrete game mode (for example kzgo.eu screenshots) use KZT.
+        "ovr": ("kz_timer", "ovr", 2),
         "v": ("kz_vanilla", "vnl", 0),
         "vnl": ("kz_vanilla", "vnl", 0),
         0: ("kz_vanilla", "vnl", 0),

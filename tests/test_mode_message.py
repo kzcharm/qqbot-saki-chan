@@ -32,14 +32,14 @@ class TestModeMessage(unittest.TestCase):
         self.assertEqual([segment.type for segment in message], ["markdown", "keyboard"])
         self.assertIn("当前模式：**SKZ**", message[0].data["markdown"].content)
         rows = message[1].data["keyboard"].content.rows
-        self.assertEqual([len(row.buttons) for row in rows], [3, 2])
+        self.assertEqual([len(row.buttons) for row in rows], [4, 2])
         buttons = [button for row in rows for button in row.buttons]
         self.assertEqual(
             [button.action.data for button in buttons],
-            ["/mode gokz kzt", "/mode gokz skz", "/mode gokz vnl", "/mode cs2kz classic", "/mode cs2kz vanilla"],
+            ["/mode gokz ovr", "/mode gokz kzt", "/mode gokz skz", "/mode gokz vnl", "/mode cs2kz classic", "/mode cs2kz vanilla"],
         )
         self.assertTrue(all(button.action.enter for button in buttons))
-        self.assertEqual(buttons[1].render_data.style, 1)
+        self.assertEqual(buttons[2].render_data.style, 1)
 
     def test_cs2kz_mode_picker_highlights_the_cs2_mode(self):
         message = self.mode_message.mode_selection_message("cs2kz", "VNL")
@@ -47,4 +47,4 @@ class TestModeMessage(unittest.TestCase):
         self.assertIn("当前游戏：**CS2KZ**", message[0].data["markdown"].content)
         rows = message[1].data["keyboard"].content.rows
         buttons = [button for row in rows for button in row.buttons]
-        self.assertEqual(buttons[4].render_data.style, 1)
+        self.assertEqual(buttons[5].render_data.style, 1)

@@ -7,6 +7,7 @@ from src.plugins.gokz.core.keyboard import KeyboardBuilder
 def mode_selection_message(game: str, current_mode: str) -> Message:
     """Build the Markdown game/mode picker and its direct-submit QQ keyboard."""
     choices = (
+        ("OVR", "gokz", "ovr"),
         ("KZT", "gokz", "kzt"),
         ("SKZ", "gokz", "skz"),
         ("VNL", "gokz", "vnl"),
@@ -35,5 +36,5 @@ def mode_selection_message(game: str, current_mode: str) -> Message:
         for label, choice_game, command in choices
     ]
     return MessageSegment.markdown(MessageMarkdown(content=content)) + KeyboardBuilder.keyboard(
-        buttons[:3], buttons[3:]
+        buttons[:4], buttons[4:]
     )

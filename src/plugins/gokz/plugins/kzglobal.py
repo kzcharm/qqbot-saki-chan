@@ -10,10 +10,14 @@ from nonebot import get_driver, on_command, logger
 from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
-from nonebot.permission import SUPERUSER
 
-from ..api.kztimerglobal import fetch_personal_best, fetch_personal_recent, fetch_world_record, fetch_overall_world_record, fetch_personal_bans, \
-    update_map_data
+from ..api.gokz_top import (
+    GOKZTopAPIError,
+    fetch_personal_bans,
+    fetch_personal_best,
+    fetch_personal_recent,
+    fetch_world_record,
+)
 from ..api import cs2kz
 from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
@@ -48,13 +52,13 @@ rank = on_command('rank')
 review = on_command('review', aliases={'评价', '评论'})
 rate = on_command('rate', aliases={'评分', '评价地图'})
 comment = on_command('comment', aliases={'地图评论'})
-update_map_info = on_command('update_map', permission=SUPERUSER)
 
 private_map_names: dict[int, str] = {}  # For private messages
 group_map_names: dict[int, str] = {}  # For group messages
 
 DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+GOKZ_TOP_UNAVAILABLE = "GOKZ.TOP API服务暂时不可用，请稍后再试。"
 
 
 def is_dev_superuser(event: Event) -> bool:
@@ -93,7 +97,7 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
         current_mode = format_kzmode(cd.mode, "m")
         other_modes = [
             (label, value)
-            for label, value in (("KZT", "KZT"), ("SKZ", "SKZ"), ("VNL", "VNL"))
+            for label, value in (("OVR", "OVR"), ("KZT", "KZT"), ("SKZ", "SKZ"), ("VNL", "VNL"))
             if value.lower() != current_mode
         ]
     actions = []
@@ -227,14 +231,31 @@ def cs2_record_text(record: dict, pro: bool | None = None) -> str:
         ║ 服务器:　{record['server']['name']}""").strip()
 
 
-@update_map_info.handle()
-async def _():
-    await update_map_data()
-    await update_map_info.finish('更新完成')
+def gokz_record_mode_label(record: dict, query_scope: str) -> str:
+    """Prefer the concrete mode returned by a GOKZ.TOP record over its scope."""
+    try:
+        return format_kzmode(record.get("mode"), "m").upper()
+    except (TypeError, ValueError):
+        return format_kzmode(query_scope, "m").upper()
+
+
+def gokz_record_rating_line(record: dict) -> str:
+    """Render the optional v1 record rating without inventing a default value."""
+    rating = record.get("rating")
+    return f"║ Rating:　{rating}" if rating is not None else ""
+
+
+def gokz_record_tier(record: dict):
+    """Use the v1 record tier, including for maps absent from the local cache."""
+    return record["map_tier"] if record.get("map_tier") is not None else MAP_TIERS.get(
+        record["map_name"], "未知"
+    )
 
 
 def convert_to_shanghai_time(date_str):
     """Converts a given datetime string to Asia/Shanghai timezone, handling future dates."""
+    if not date_str:
+        return "永久封禁"
     original_time = datetime.fromisoformat(date_str)
 
     # Check for far-future expiration date
@@ -252,7 +273,10 @@ async def _(event: Event, args: Message = CommandArg()):
     if cd.error:
         return await ban_.send(cd.error)
 
-    bans = await fetch_personal_bans(steamid64=cd.steamid)
+    try:
+        bans = await fetch_personal_bans(steamid64=cd.steamid)
+    except GOKZTopAPIError:
+        return await ban_.finish(GOKZ_TOP_UNAVAILABLE, at_sender=True)
 
     if not bans:
         return await ban_.finish(f"{cd.steamid} 没有找到任何封禁记录。", at_sender=True)
@@ -261,12 +285,14 @@ async def _(event: Event, args: Message = CommandArg()):
 
     for ban in bans:
         ban_type = ban.get("ban_type", "未知")
-        player_name = ban.get("player_name", "未知玩家")
-        notes = ban.get("notes", "无")
-        server_id = ban.get("server_id", "未知服务器")
+        player = ban.get("player") or {}
+        server = ban.get("server") or {}
+        player_name = player.get("display_name", "未知玩家")
+        notes = ban.get("notes") or "无"
+        server_id = server.get("id") or ban.get("server_id", "未知服务器")
 
-        created_on = convert_to_shanghai_time(ban["created_on"])
-        expires_on = convert_to_shanghai_time(ban["expires_on"])
+        created_on = convert_to_shanghai_time(ban.get("created_at"))
+        expires_on = convert_to_shanghai_time(ban.get("expires_at"))
 
         content += dedent(f"""
             ╔═════════════
@@ -333,31 +359,37 @@ async def _(event: Event, args: Message = CommandArg()):
     """).strip()
 
     try:
-        data = await fetch_overall_world_record(map_name, mode=kz_mode)
-        content += dedent(f"""
-            ║ {data['steam_id']}
-            ║ 昵称:　　{data['player_name']}
-            ║ 用时:　　{format_gruntime(data['time'])}
-            ║ 存点数:　{data.get('teleports', 'N/A')}
-            ║ 分数:　　{data['points']}
-            ║ 服务器:　{data['server_name']}
-            ║ {record_format_time(data.get('created_on') or data.get('updated_on'))}""")
-    except IndexError:
-        content += f"\n╠ 未发现Overall记录:"
+        data = await fetch_world_record(map_name, kz_mode, "NUB")
+        if data:
+            content += dedent(f"""
+                ║ {data['steam_id']}
+                ║ 昵称:　　{data['player_name']}
+                ║ 用时:　　{format_gruntime(data['time'])}
+                ║ 存点数:　{data.get('teleports', 'N/A')}
+                ║ 分数:　　{data['points']}
+                ║ 服务器:　{data['server_name']}
+                ║ {record_format_time(data.get('created_on') or data.get('updated_on'))}""")
+        else:
+            content += "\n╠ 未发现Overall记录:"
+    except GOKZTopAPIError:
+        return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
     content += f"\n╠═════裸跳记录═════"
     try:
-        pro = await fetch_world_record(map_name, mode=kz_mode, has_tp=False)
-        content += dedent(f"""
-            ║ {pro['steam_id']}
-            ║ 昵称:　　{pro['player_name']}
-            ║ 用时:　　{format_gruntime(pro['time'])}
-            ║ 分数:　　{pro['points']}
-            ║ 服务器:　{pro['server_name']}
-            ╚ {record_format_time(pro['created_on'])}═══
-        """)
-    except IndexError:
-        content += f"\n未发现裸跳记录:"
+        pro = await fetch_world_record(map_name, kz_mode, "PRO")
+        if pro:
+            content += dedent(f"""
+                ║ {pro['steam_id']}
+                ║ 昵称:　　{pro['player_name']}
+                ║ 用时:　　{format_gruntime(pro['time'])}
+                ║ 分数:　　{pro['points']}
+                ║ 服务器:　{pro['server_name']}
+                ╚ {record_format_time(pro['created_on'])}═══
+            """)
+        else:
+            content += "\n未发现裸跳记录:"
+    except GOKZTopAPIError:
+        return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
     img_path = await get_map_img_url(map_name)
     # Add newline at start for group messages (bot will @ user automatically)
@@ -401,16 +433,21 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
             data['map']['name'],
         ))
 
-    # Keep GlobalAPI as the source of the normal `/pr` response. GOKZ Top is
-    # contacted only later, after this response is sent, for T6+ history checks.
-    data = await fetch_personal_recent(cd.steamid, cd.mode)
+    try:
+        data = await fetch_personal_recent(cd.steamid, format_kzmode(cd.mode, "m"))
+    except GOKZTopAPIError:
+        return await pr.finish(GOKZ_TOP_UNAVAILABLE)
+    if not data:
+        return await pr.finish("未找到最近跳图记录")
     player_name = data.get("player_name", "未知玩家")
-    map_tier = MAP_TIERS.get(data["map_name"], "未知")
+    # v1 records carry their own tier.  Prefer it so new maps retain both
+    # their display tier and their /pr compliment eligibility.
+    map_tier = gokz_record_tier(data)
 
     content = dedent(f"""
         ╔ 地图:　　{data['map_name']}
         ║ 难度:　　T{map_tier}
-        ║ 模式:　　{format_kzmode(cd.mode, 'm').upper()}
+        ║ 模式:　　{gokz_record_mode_label(data, cd.mode)}
         ║ 玩家:　　{player_name}
         ║ 用时:　　{format_gruntime(data['time'])}
         ║ 存点数:　{data['teleports']}
@@ -491,37 +528,47 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         ╠═════存点记录═════""").strip()
 
     try:
-        data = await fetch_personal_best(cd.steamid, map_name, cd.mode)
-        if data:
-            content += dedent(f"""
-                ║ 玩家:　　{data['player_name']}
-                ║ 用时:　　{format_gruntime(data['time'])}
-                ║ 存点:　　{data['teleports']}
-                ║ 分数:　　{data['points']}
-                ║ 服务器:　{data['server_name']}
-                ║ {record_format_time(data['created_on'])} """)
-        else:
-            content += f"\n║ 未发现存点记录"
-    except Exception as e:
-        logger.info(repr(e))
-        content += f"\n║ 未发现存点记录"
+        data, pro = await asyncio.gather(
+            fetch_personal_best(cd.steamid, map_name, format_kzmode(cd.mode, "m"), "NUB"),
+            fetch_personal_best(cd.steamid, map_name, format_kzmode(cd.mode, "m"), "PRO"),
+        )
+    except GOKZTopAPIError:
+        return await pb.finish(GOKZ_TOP_UNAVAILABLE)
+
+    if data:
+        lines = [
+            f"║ 玩家:　　{data['player_name']}",
+            f"║ 用时:　　{format_gruntime(data['time'])}",
+            f"║ 存点:　　{data['teleports']}",
+            f"║ 分数:　　{data['points']}",
+        ]
+        if rating_line := gokz_record_rating_line(data):
+            lines.append(rating_line)
+        lines.extend((
+            f"║ 服务器:　{data['server_name']}",
+            f"║ {record_format_time(data['created_on'])} ",
+        ))
+        content += "\n".join(lines)
+    else:
+        content += "\n║ 未发现存点记录"
 
     content += f"\n╠═════裸跳记录═════"
 
-    try:
-        pro = await fetch_personal_best(cd.steamid, map_name, cd.mode, has_tp=False)
-        if pro:
-            content += dedent(f"""
-                ║ 玩家:　　{pro['player_name']}
-                ║ 用时:　　{format_gruntime(pro['time'])}
-                ║ 分数:　　{pro['points']}
-                ║ 服务器:　{pro['server_name']}
-                ╚ {record_format_time(pro['created_on'])} ═══""")
-        else:
-            content += f"\n╚ 未发现裸跳记录"
-    except Exception as e:
-        logger.info(repr(e))
-        content += f"\n╚ 未发现裸跳记录"
+    if pro:
+        lines = [
+            f"║ 玩家:　　{pro['player_name']}",
+            f"║ 用时:　　{format_gruntime(pro['time'])}",
+            f"║ 分数:　　{pro['points']}",
+        ]
+        if rating_line := gokz_record_rating_line(pro):
+            lines.append(rating_line)
+        lines.extend((
+            f"║ 服务器:　{pro['server_name']}",
+            f"╚ {record_format_time(pro['created_on'])} ═══",
+        ))
+        content += "\n".join(lines)
+    else:
+        content += "\n╚ 未发现裸跳记录"
 
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):

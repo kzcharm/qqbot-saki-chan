@@ -43,7 +43,7 @@ class TestCommandHelper(unittest.TestCase):
         self.assertEqual(parsed["args"], ("innit",))
 
     def test_mode_can_appear_before_or_after_map(self):
-        for text, mode in (("k innit", "k"), ("innit k", "k"), ("KZT innit", "kzt"), ("innit kz_timer", "kz_timer")):
+        for text, mode in (("k innit", "k"), ("innit k", "k"), ("KZT innit", "kzt"), ("innit kz_timer", "kz_timer"), ("OVR innit", "ovr")):
             with self.subTest(text=text):
                 parsed = self.parse_args(text)
                 self.assertEqual(parsed["mode"].lower(), mode)
@@ -54,6 +54,10 @@ class TestCommandHelper(unittest.TestCase):
 
         self.assertEqual(parsed["mode"], "invalid")
         self.assertEqual(parsed["args"], ("innit",))
+
+    def test_ovr_scope_uses_kzt_as_its_concrete_mode(self):
+        self.assertEqual(self.command_helper.format_kzmode("OVR", "m"), "ovr")
+        self.assertEqual(self.command_helper.format_kzmode("OVR"), "kz_timer")
 
     def test_unbound_user_receives_shared_binding_help_message(self):
         class NoUserSession:
