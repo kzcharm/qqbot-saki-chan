@@ -59,6 +59,7 @@ group_map_names: dict[int, str] = {}  # For group messages
 DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
 GOKZ_TOP_UNAVAILABLE = "GOKZ.TOP API服务暂时不可用，请稍后再试。"
+PR_IMAGE_BASE_URL = "https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images"
 
 
 def is_dev_superuser(event: Event) -> bool:
@@ -77,7 +78,13 @@ def selected_gokz_command(command: str, map_name: str, cd: CommandData) -> str:
     return map_command(command, map_name, *arguments)
 
 
-def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str | None = None):
+def pb_action_keyboard(
+    event: Event,
+    cd: CommandData,
+    map_name: str,
+    course: str | None = None,
+    include_other_modes: bool = True,
+):
     """Build follow-up actions for a PB result.
 
     In group chats, anyone viewing the result can use the self-query action.
@@ -160,20 +167,21 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
             enter=True,
         )
     )
-    actions.extend(
-        KeyboardBuilder.button(
-            id=f"pb_{other_mode}",
-            label=f"查询{label}",
-            visited_label="查询中",
-            style=1,
-            action_type=2,
-            permission_type=2,
-            action_data=f"/pb {map_name} -m {other_mode}{game}{course_arg}{target_arg}",
-            reply=True,
-            enter=True,
+    if include_other_modes:
+        actions.extend(
+            KeyboardBuilder.button(
+                id=f"pb_{other_mode}",
+                label=f"查询{label}",
+                visited_label="查询中",
+                style=1,
+                action_type=2,
+                permission_type=2,
+                action_data=f"/pb {map_name} -m {other_mode}{game}{course_arg}{target_arg}",
+                reply=True,
+                enter=True,
+            )
+            for label, other_mode in other_modes
         )
-        for label, other_mode in other_modes
-    )
     actions.append(
         KeyboardBuilder.button(
             id="pb_rate",
@@ -200,6 +208,23 @@ def pb_action_keyboard(event: Event, cd: CommandData, map_name: str, course: str
 def pb_keyboard_message(keyboard, map_name: str):
     """Keyboard messages still need a Markdown payload for QQ msg_type=2."""
     return MessageSegment.markdown(MessageMarkdown(content=map_name)) + keyboard
+
+
+def pr_markdown_content(player_name: str, map_name: str, lines: list[str]) -> str:
+    """Render a recent-record card using QQ Markdown and an unordered list."""
+    return "\n\n".join((
+        f"# {player_name} 的`近期记录`",
+        f"![{map_name}]({PR_IMAGE_BASE_URL}/{map_name}.webp)",
+        "\n".join(f"- {line}" for line in lines),
+    ))
+
+
+def pb_markdown_content(player_name: str, map_name: str, sections: list[tuple[str, list[str]]]) -> str:
+    """Render personal-best sections as one Markdown card."""
+    parts = [f"# {player_name} 的`个人最佳`", f"![{map_name}]({PR_IMAGE_BASE_URL}/{map_name}.webp)"]
+    for heading, lines in sections:
+        parts.append(f"## {heading}\n" + "\n".join(f"- {line}" for line in lines))
+    return "\n\n".join(parts)
 
 
 def normalize_leaderboard_rank(data: dict) -> dict:
@@ -416,21 +441,19 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         if not records:
             return await pr.finish("未找到CS2KZ最近记录")
         data = records[0]
-        content = "\n".join((
-            f"╔ 地图:　　{data['map']['name']}",
-            f"║ 关卡:　　{data['course']['name']}",
-            f"║ 模式:　　{format_cs2kz_mode_label(cd.mode)}",
-            cs2_record_text(data),
-            "╚ CS2KZ ═══",
-        ))
-        img_path = await get_cs2kz_preferred_map_img_path(data['map']['name'])
-        if img_path:
-            await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
-        else:
-            await bot.send(event, MessageSegment.text(content))
-        return await bot.send(event, pb_keyboard_message(
-            pb_action_keyboard(event, cd, data['map']['name'], data['course']['name']),
-            data['map']['name'],
+        lines = [
+            f"地图:　　{data['map']['name']}",
+            f"关卡:　　{data['course']['name']}",
+            f"模式:　　{format_cs2kz_mode_label(cd.mode)}",
+            f"玩家:　　{data['player']['name']}",
+            f"用时:　　{format_gruntime(data['time'])}",
+            f"存点数:　{data['teleports']}",
+            f"分数:　　{(cs2kz.record_points(data) or 0):.0f}",
+            f"服务器:　{data['server']['name']}",
+        ]
+        content = pr_markdown_content(data['player']['name'], data['map']['name'], lines)
+        return await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+            event, cd, data['map']['name'], data['course']['name'], include_other_modes=False,
         ))
 
     try:
@@ -444,28 +467,21 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     # their display tier and their /pr compliment eligibility.
     map_tier = gokz_record_tier(data)
 
-    content = dedent(f"""
-        ╔ 地图:　　{data['map_name']}
-        ║ 难度:　　T{map_tier}
-        ║ 模式:　　{gokz_record_mode_label(data, cd.mode)}
-        ║ 玩家:　　{player_name}
-        ║ 用时:　　{format_gruntime(data['time'])}
-        ║ 存点数:　{data['teleports']}
-        ║ 分数:　　{data['points']}
-        ║ 服务器:　{data['server_name']}
-        ╚ {record_format_time(data['created_on'])} ═══""").strip()
-
-    img_path = await get_map_img_url(data['map_name'])
-    # Add newline at start for group messages (bot will @ user automatically)
-    if getattr(event, 'group_id', None):
-        content = '\n' + content
-    if img_path and img_path.exists():
-        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
-    else:
-        combined_message = MessageSegment.text(content)
-
-    await bot.send(event, combined_message)
-    await bot.send(event, pb_keyboard_message(pb_action_keyboard(event, cd, data['map_name']), data['map_name']))
+    lines = [
+        f"地图:　　{data['map_name']}",
+        f"难度:　　T{map_tier}",
+        f"模式:　　{gokz_record_mode_label(data, cd.mode)}",
+        f"玩家:　　{player_name}",
+        f"用时:　　{format_gruntime(data['time'])}",
+        f"存点数:　{data['teleports']}",
+        f"分数:　　{data['points']}",
+        f"服务器:　{data['server_name']}",
+        record_format_time(data['created_on']),
+    ]
+    content = pr_markdown_content(player_name, data['map_name'], lines)
+    await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+        event, cd, data['map_name'], include_other_modes=False,
+    ))
     compliment_record = {**data, "map_tier": map_tier}
     force_compliment = is_dev_superuser(event)
     if force_compliment or is_notable_run(compliment_record):
@@ -497,18 +513,32 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         course = cs2kz.find_course(map_data, cd.course)
         tp_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, limit=1)
         pro_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, has_teleports=False, limit=1)
-        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
-        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
-        content += "\n╠═════PRO记录═════"
-        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
-        content += "\n╚ CS2KZ ═══"
-        img_path = await get_cs2kz_preferred_map_img_path(map_name)
-        if img_path:
-            await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
-        else:
-            await bot.send(event, MessageSegment.text(content))
-        return await bot.send(event, pb_keyboard_message(
-            pb_action_keyboard(event, cd, map_name, course), map_name,
+        player_name = (
+            (tp_records[0] if tp_records else pro_records[0])['player']['name']
+            if (tp_records or pro_records) else "未知玩家"
+        )
+        def cs2_lines(record, pro_mode=False):
+            if not record:
+                return ["未发现记录"]
+            return [
+                f"玩家:　　{record['player']['name']}",
+                f"用时:　　{format_gruntime(record['time'])}",
+                f"存点数:　{record['teleports']}",
+                f"分数:　　{(cs2kz.record_points(record, pro_mode) or 0):.0f}",
+                f"排名:　　#{cs2kz.record_rank(record, pro_mode) or '-'}",
+                f"服务器:　{record['server']['name']}",
+            ]
+        content = pb_markdown_content(player_name, map_name, [
+            ("地图信息", [
+                f"地图:　　{map_name}",
+                f"关卡:　　{course}",
+                f"模式:　　{format_cs2kz_mode_label(cd.mode)}",
+            ]),
+            ("NUB记录", cs2_lines(tp_records[0] if tp_records else None)),
+            ("PRO记录", cs2_lines(pro_records[0] if pro_records else None, True)),
+        ])
+        return await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+            event, cd, map_name, course, include_other_modes=False,
         ))
 
     map_name, candidates = resolve_map_name(cd.args[0])
@@ -521,11 +551,7 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     if not map_name:
         return await pb.finish("未找到该地图")
 
-    content = dedent(f"""
-        ╔ 地图:　{map_name}
-        ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
-        ║ 模式:　{format_kzmode(cd.mode, 'm').upper()}
-        ╠═════存点记录═════""").strip()
+    sections = []
 
     try:
         data, pro = await asyncio.gather(
@@ -537,48 +563,52 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
 
     if data:
         lines = [
-            f"║ 玩家:　　{data['player_name']}",
-            f"║ 用时:　　{format_gruntime(data['time'])}",
-            f"║ 存点:　　{data['teleports']}",
-            f"║ 分数:　　{data['points']}",
+            f"玩家:　　{data['player_name']}",
+            f"模式:　　{gokz_record_mode_label(data, cd.mode)}",
+            f"用时:　　{format_gruntime(data['time'])}",
+            f"存点数:　{data['teleports']}",
+            f"分数:　　{data['points']}",
         ]
         if rating_line := gokz_record_rating_line(data):
-            lines.append(rating_line)
+            lines.append(rating_line.removeprefix("║ "))
         lines.extend((
-            f"║ 服务器:　{data['server_name']}",
-            f"║ {record_format_time(data['created_on'])} ",
+            f"服务器:　{data['server_name']}",
+            record_format_time(data['created_on']),
         ))
-        content += "\n".join(lines)
+        sections.append(("存点记录", lines))
     else:
-        content += "\n║ 未发现存点记录"
-
-    content += f"\n╠═════裸跳记录═════"
+        sections.append(("存点记录", ["未发现记录"]))
 
     if pro:
         lines = [
-            f"║ 玩家:　　{pro['player_name']}",
-            f"║ 用时:　　{format_gruntime(pro['time'])}",
-            f"║ 分数:　　{pro['points']}",
+            f"玩家:　　{pro['player_name']}",
+            f"模式:　　{gokz_record_mode_label(pro, cd.mode)}",
+            f"用时:　　{format_gruntime(pro['time'])}",
+            f"分数:　　{pro['points']}",
         ]
         if rating_line := gokz_record_rating_line(pro):
-            lines.append(rating_line)
+            lines.append(rating_line.removeprefix("║ "))
         lines.extend((
-            f"║ 服务器:　{pro['server_name']}",
-            f"╚ {record_format_time(pro['created_on'])} ═══",
+            f"服务器:　{pro['server_name']}",
+            record_format_time(pro['created_on']),
         ))
-        content += "\n".join(lines)
+        sections.append(("裸跳记录", lines))
     else:
-        content += "\n╚ 未发现裸跳记录"
+        sections.append(("裸跳记录", ["未发现记录"]))
 
-    # Add newline at start for group messages (bot will @ user automatically)
-    if getattr(event, 'group_id', None):
-        content = '\n' + content
-    img_path = await get_map_img_url(map_name)
-    if img_path and img_path.exists():
-        await bot.send(event, MessageSegment.file_image(img_path) + MessageSegment.text(content))
-    else:
-        await bot.send(event, MessageSegment.text(content))
-    await bot.send(event, pb_keyboard_message(pb_action_keyboard(event, cd, map_name), map_name))
+    player_name = (data or pro or {}).get("player_name", "未知玩家")
+    concrete_mode = gokz_record_mode_label(data or pro or {}, cd.mode)
+    content = pb_markdown_content(player_name, map_name, [
+        ("地图信息", [
+            f"地图:　　{map_name}",
+            f"难度:　　T{MAP_TIERS.get(map_name, '未知')}",
+            f"模式:　　{concrete_mode}",
+        ]),
+        *sections,
+    ])
+    await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+        event, cd, map_name, include_other_modes=False,
+    ))
 
 
 @rank.handle()

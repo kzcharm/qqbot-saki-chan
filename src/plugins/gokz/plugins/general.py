@@ -40,7 +40,7 @@ GOKZ_TOP_V1 = "https://api.gokz.top/v1"
 TEST_IMAGE_URLS = (
     (
         "bkz_apricity_v3",
-        "https://pub-f8f0fa54945442d6807ab143385aebb5.r2.dev/images/maps/bkz_apricity_v3.webp",
+        "https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images/bkz_apricity_v3.webp",
     ),
 )
 
