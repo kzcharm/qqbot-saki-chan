@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from src.plugins.gokz.api.helper import fetch_json
 from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import DailyMapAssignment, DailyMapCache
+from src.plugins.gokz.core.config import update_map_catalog
 
 
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
@@ -72,6 +73,7 @@ async def get_maps(scope: str) -> list[dict[str, Any]] | None:
     cache_key = f"maps:{scope}"
     cached = _load_cache(cache_key, MAP_CACHE_TTL)
     if isinstance(cached, list):
+        update_map_catalog(cached, replace=scope.upper() == "KZT")
         return cached
 
     data = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"scope": scope, "limit": 10000})
@@ -88,6 +90,7 @@ async def get_maps(scope: str) -> list[dict[str, Any]] | None:
         if isinstance(map_id, int) and isinstance(map_name, str):
             maps.append({"id": map_id, "name": map_name, "tier": tier})
     _store_cache(cache_key, maps)
+    update_map_catalog(maps, replace=scope.upper() == "KZT")
     return maps
 
 
