@@ -32,6 +32,8 @@ nb run --reload
 
 - `/markdown_test` 发送 QQ 自定义 Markdown 渲染测试消息。
 
+- `/test` 尝试发送带内嵌图片和键盘按钮的 Markdown 消息。
+
 - `/bind <binding-code>` 绑定 Steam 账号。在 [绑定码页面](https://gokz.top/settings/binding-code) 使用 Steam 登录并生成绑定码后发送，例如：`/bind KZTOP...`。绑定码区分大小写，有效期为 5 分钟。
 - `/mode <mode>` 切换默认模式 例: `/mode skz`
 - `/profile` 查看玩家 GOKZ.TOP 资料、Steam 链接，以及已验证的 Bilibili 链接。支持通用的 `-q`、`-s` 参数或 @ 指定其他已绑定用户。

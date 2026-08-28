@@ -17,6 +17,7 @@ from src.plugins.gokz.core.binding_code import verify_binding_code
 from src.plugins.gokz.core.binding_message import binding_help_message
 from src.plugins.gokz.core.profile import profile_markdown
 from src.plugins.gokz.core.mode_message import mode_selection_message
+from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.config import QQ_BOT_SECRET
 from ..api.helper import fetch_json
 from ..core.command_helper import CommandData
@@ -36,6 +37,12 @@ info = on_command("info")
 profile = on_command("profile", aliases={"资料"})
 
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
+TEST_IMAGE_URLS = (
+    (
+        "bkz_apricity_v3",
+        "https://pub-f8f0fa54945442d6807ab143385aebb5.r2.dev/images/maps/bkz_apricity_v3.webp",
+    ),
+)
 
 
 @profile.handle()
@@ -127,6 +134,50 @@ async def _():
         测试完成。
     """).strip()
     await markdown_test.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
+
+
+@test.handle()
+async def _():
+    """Try an AXE R2-hosted Markdown image with an action keyboard."""
+
+    def build_test_message(image_name: str, image_url: str) -> Message:
+        content = dedent(f"""
+            # Markdown 图片与键盘测试
+
+            ![{image_name}]({image_url})
+
+            图片：**{image_name}**
+
+            > 如果图片未显示，说明当前地址或 QQ Markdown 图片抓取不兼容。
+        """).strip()
+        keyboard = KeyboardBuilder.keyboard([
+            KeyboardBuilder.button(
+                id="test_open_image",
+                label="打开测试图片",
+                visited_label="已打开",
+                style=1,
+                action_type=0,
+                permission_type=2,
+                action_data=image_url,
+                enter=False,
+            ),
+            KeyboardBuilder.button(
+                id="test_again",
+                label="再次测试",
+                visited_label="已测试",
+                style=0,
+                action_type=2,
+                permission_type=2,
+                action_data="/test",
+                enter=True,
+            ),
+        ])
+        return MessageSegment.markdown(MessageMarkdown(content=content)) + keyboard
+
+    for image_name, image_url in TEST_IMAGE_URLS[:-1]:
+        await test.send(build_test_message(image_name, image_url))
+    image_name, image_url = TEST_IMAGE_URLS[-1]
+    await test.finish(build_test_message(image_name, image_url))
 
 
 @bind.handle()
