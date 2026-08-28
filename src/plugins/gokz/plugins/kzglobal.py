@@ -35,6 +35,7 @@ from src.plugins.gokz.core.map_selection import (
     map_selection_message,
     resolve_map_name,
 )
+from src.plugins.gokz.core.daily_map import get_maps
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.core.rate_message import rate_selection_message
 from src.plugins.gokz.core.pr_compliment import (
@@ -60,6 +61,16 @@ DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
 GOKZ_TOP_UNAVAILABLE = "GOKZ.TOP API服务暂时不可用，请稍后再试。"
 PR_IMAGE_BASE_URL = "https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images"
+
+
+async def refresh_gokz_map_catalog(scope: str = "KZT") -> None:
+    """Load the persisted GOKZ.TOP map catalog before resolving a map name."""
+    try:
+        await get_maps(scope)
+    except Exception:
+        # Map lookup continues with the bundled catalog when the API/cache is
+        # unavailable; record queries will report their own API errors.
+        logger.debug("Unable to refresh GOKZ.TOP map catalog", exc_info=True)
 
 
 def is_dev_superuser(event: Event) -> bool:
@@ -353,16 +364,30 @@ async def _(event: Event, args: Message = CommandArg()):
         course = cs2kz.find_course(map_data, cd.course)
         tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, max_rank=1, limit=1)
         pro_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=False, max_rank=1, limit=1)
-        content = f"╔ 地图:　{map_name}\n║ 关卡:　{course}\n║ 模式:　{format_cs2kz_mode_label(cd.mode)}\n╠═════NUB记录═════"
-        content += cs2_record_text(tp_records[0], False) if tp_records else "\n║ 未发现NUB记录"
-        content += "\n╠═════PRO记录═════"
-        content += cs2_record_text(pro_records[0], True) if pro_records else "\n║ 未发现PRO记录"
-        content += "\n╚ CS2KZ ═══"
-        img_path = await get_cs2kz_preferred_map_img_path(map_name)
-        if not img_path:
-            return
-        return await wr.send(MessageSegment.file_image(img_path) + MessageSegment.text(content))
+        player_name = (
+            (tp_records[0] if tp_records else pro_records[0])['player']['name']
+            if (tp_records or pro_records) else "世界纪录"
+        )
+        def cs2_wr_lines(record, pro_mode=False):
+            if not record:
+                return ["未发现记录"]
+            return [
+                f"玩家:　　{record['player']['name']}",
+                f"用时:　　{format_gruntime(record['time'])}",
+                f"存点数:　{record['teleports']}",
+                f"分数:　　{(cs2kz.record_points(record, pro_mode) or 0):.0f}",
+                f"服务器:　{record['server']['name']}",
+            ]
+        content = pb_markdown_content(player_name, map_name, [
+            ("地图信息", [f"地图:　　{map_name}", f"关卡:　　{course}", f"模式:　　{format_cs2kz_mode_label(cd.mode)}"]),
+            ("NUB世界纪录", cs2_wr_lines(tp_records[0] if tp_records else None)),
+            ("PRO世界纪录", cs2_wr_lines(pro_records[0] if pro_records else None, True)),
+        ])
+        return await wr.send(MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+            event, cd, map_name, course, include_other_modes=False,
+        ))
 
+    await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
     map_name, candidates = resolve_map_name(cd.args[0])
     if candidates:
         return await wr.finish(map_selection_message(
@@ -374,57 +399,51 @@ async def _(event: Event, args: Message = CommandArg()):
         return await wr.finish("未找到该地图")
 
     kz_mode = cd.mode
-    kz_mode_label = format_kzmode(kz_mode, "m").upper()
 
-    content = dedent(f"""
-        ╔ 地图:　{map_name}
-        ║ 难度:　T{MAP_TIERS.get(map_name, '未知')}
-        ║ 模式:　{kz_mode_label}
-        ╠═════Overall记录═════
-    """).strip()
+    sections = []
 
     try:
         data = await fetch_world_record(map_name, kz_mode, "NUB")
         if data:
-            content += dedent(f"""
-                ║ {data['steam_id']}
-                ║ 昵称:　　{data['player_name']}
-                ║ 用时:　　{format_gruntime(data['time'])}
-                ║ 存点数:　{data.get('teleports', 'N/A')}
-                ║ 分数:　　{data['points']}
-                ║ 服务器:　{data['server_name']}
-                ║ {record_format_time(data.get('created_on') or data.get('updated_on'))}""")
+            sections.append(("Overall世界纪录", [
+                f"玩家:　　{data['player_name']}",
+                f"模式:　　{gokz_record_mode_label(data, kz_mode)}",
+                f"用时:　　{format_gruntime(data['time'])}",
+                f"存点数:　{data.get('teleports', 'N/A')}",
+                f"分数:　　{data['points']}",
+                f"服务器:　{data['server_name']}",
+                record_format_time(data.get('created_on') or data.get('updated_on')),
+            ]))
         else:
-            content += "\n╠ 未发现Overall记录:"
+            sections.append(("Overall世界纪录", ["未发现记录"]))
     except GOKZTopAPIError:
         return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
-    content += f"\n╠═════裸跳记录═════"
     try:
         pro = await fetch_world_record(map_name, kz_mode, "PRO")
         if pro:
-            content += dedent(f"""
-                ║ {pro['steam_id']}
-                ║ 昵称:　　{pro['player_name']}
-                ║ 用时:　　{format_gruntime(pro['time'])}
-                ║ 分数:　　{pro['points']}
-                ║ 服务器:　{pro['server_name']}
-                ╚ {record_format_time(pro['created_on'])}═══
-            """)
+            sections.append(("裸跳世界纪录", [
+                f"玩家:　　{pro['player_name']}",
+                f"模式:　　{gokz_record_mode_label(pro, kz_mode)}",
+                f"用时:　　{format_gruntime(pro['time'])}",
+                f"分数:　　{pro['points']}",
+                f"服务器:　{pro['server_name']}",
+                record_format_time(pro['created_on']),
+            ]))
         else:
-            content += "\n未发现裸跳记录:"
+            sections.append(("裸跳世界纪录", ["未发现记录"]))
     except GOKZTopAPIError:
         return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
-    img_path = await get_map_img_url(map_name)
-    # Add newline at start for group messages (bot will @ user automatically)
-    if getattr(event, 'group_id', None):
-        content = '\n' + content
-    if img_path and img_path.exists():
-        combined_message = MessageSegment.file_image(img_path) + MessageSegment.text(content)
-    else:
-        combined_message = MessageSegment.text(content)
-    await wr.send(combined_message)
+    player_name = (data or pro or {}).get('player_name', '世界纪录')
+    concrete_mode = gokz_record_mode_label(data or pro or {}, kz_mode)
+    content = pb_markdown_content(player_name, map_name, [
+        ("地图信息", [f"地图:　　{map_name}", f"难度:　　T{MAP_TIERS.get(map_name, '未知')}", f"模式:　　{concrete_mode}"]),
+        *sections,
+    ])
+    await wr.send(MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
+        event, cd, map_name, include_other_modes=False,
+    ))
 
     # if map_name == 'kz_hb_fafnir':
     #     await wr.send(MessageSegment.file_audio(Path('data/gokz/sound/fafnir.silk')))
@@ -541,6 +560,7 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
             event, cd, map_name, course, include_other_modes=False,
         ))
 
+    await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
     map_name, candidates = resolve_map_name(cd.args[0])
     if candidates:
         return await pb.finish(map_selection_message(
@@ -852,6 +872,7 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     if not args:
         return await review.finish("🗺地图名都不给我怎么帮你查评价 (￣^￣) ")
     
+    await refresh_gokz_map_catalog()
     map_name, candidates = resolve_map_name(args.extract_plain_text().strip())
     if candidates:
         return await review.finish(map_selection_message(
@@ -998,6 +1019,7 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     args_list = args_text.split()
     
     # Search for map name
+    await refresh_gokz_map_catalog()
     map_name, candidates = resolve_map_name(args_list[0])
     if candidates:
         trailing_args = " ".join(args_list[1:])
@@ -1073,6 +1095,7 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
     if len(args_list) < 2 or not args_list[1].strip():
         return await comment.finish("用法: /comment map_name 评论内容")
 
+    await refresh_gokz_map_catalog()
     map_name, candidates = resolve_map_name(args_list[0])
     if candidates:
         return await comment.finish(map_selection_message(
