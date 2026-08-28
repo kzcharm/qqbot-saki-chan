@@ -230,12 +230,26 @@ def pr_markdown_content(player_name: str, map_name: str, lines: list[str]) -> st
     ))
 
 
-def pb_markdown_content(player_name: str, map_name: str, sections: list[tuple[str, list[str]]]) -> str:
-    """Render personal-best sections as one Markdown card."""
-    parts = [f"# {player_name} 的`个人最佳`", f"![{map_name}]({PR_IMAGE_BASE_URL}/{map_name}.webp)"]
+def record_sections_markdown_content(
+    title: str, map_name: str, sections: list[tuple[str, list[str]]]
+) -> str:
+    """Render a titled record card with map image and detail sections."""
+    parts = [f"# {title}", f"![{map_name}]({PR_IMAGE_BASE_URL}/{map_name}.webp)"]
     for heading, lines in sections:
         parts.append(f"## {heading}\n" + "\n".join(f"- {line}" for line in lines))
     return "\n\n".join(parts)
+
+
+def pb_markdown_content(player_name: str, map_name: str, sections: list[tuple[str, list[str]]]) -> str:
+    """Render personal-best sections as one Markdown card."""
+    return record_sections_markdown_content(
+        f"{player_name} 的`个人最佳`", map_name, sections
+    )
+
+
+def wr_markdown_content(map_name: str, sections: list[tuple[str, list[str]]]) -> str:
+    """Render world-record sections titled by map rather than record holder."""
+    return record_sections_markdown_content(f"{map_name} `世界记录`", map_name, sections)
 
 
 def normalize_leaderboard_rank(data: dict) -> dict:
@@ -364,10 +378,6 @@ async def _(event: Event, args: Message = CommandArg()):
         course = cs2kz.find_course(map_data, cd.course)
         tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, max_rank=1, limit=1)
         pro_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=False, max_rank=1, limit=1)
-        player_name = (
-            (tp_records[0] if tp_records else pro_records[0])['player']['name']
-            if (tp_records or pro_records) else "世界纪录"
-        )
         def cs2_wr_lines(record, pro_mode=False):
             if not record:
                 return ["未发现记录"]
@@ -378,7 +388,7 @@ async def _(event: Event, args: Message = CommandArg()):
                 f"分数:　　{(cs2kz.record_points(record, pro_mode) or 0):.0f}",
                 f"服务器:　{record['server']['name']}",
             ]
-        content = pb_markdown_content(player_name, map_name, [
+        content = wr_markdown_content(map_name, [
             ("地图信息", [f"地图:　　{map_name}", f"关卡:　　{course}", f"模式:　　{format_cs2kz_mode_label(cd.mode)}"]),
             ("NUB世界纪录", cs2_wr_lines(tp_records[0] if tp_records else None)),
             ("PRO世界纪录", cs2_wr_lines(pro_records[0] if pro_records else None, True)),
@@ -435,9 +445,8 @@ async def _(event: Event, args: Message = CommandArg()):
     except GOKZTopAPIError:
         return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
-    player_name = (data or pro or {}).get('player_name', '世界纪录')
     concrete_mode = gokz_record_mode_label(data or pro or {}, kz_mode)
-    content = pb_markdown_content(player_name, map_name, [
+    content = wr_markdown_content(map_name, [
         ("地图信息", [f"地图:　　{map_name}", f"难度:　　T{MAP_TIERS.get(map_name, '未知')}", f"模式:　　{concrete_mode}"]),
         *sections,
     ])
