@@ -155,7 +155,7 @@ def pb_action_keyboard(
         actions.append(
             KeyboardBuilder.button(
                 id="pb_leaderboard",
-                label="查看排行榜",
+                label="排行榜",
                 visited_label="打开中",
                 style=1,
                 action_type=0,
@@ -168,7 +168,7 @@ def pb_action_keyboard(
     actions.append(
         KeyboardBuilder.button(
             id="pb_progress",
-            label="查询地图进度",
+            label="地图提升",
             visited_label="查询中",
             style=1,
             action_type=2,
@@ -196,7 +196,7 @@ def pb_action_keyboard(
     actions.append(
         KeyboardBuilder.button(
             id="pb_rate",
-            label="为地图评分",
+            label="评分",
             visited_label="打开评分",
             style=1,
             action_type=2,
