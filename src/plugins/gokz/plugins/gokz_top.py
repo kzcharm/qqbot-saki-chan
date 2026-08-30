@@ -4,6 +4,7 @@ from textwrap import dedent
 
 from nonebot import on_command, logger
 from nonebot.adapters.qq import MessageEvent as Event, Message
+from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from sqlmodel import Session
@@ -20,7 +21,19 @@ from src.plugins.gokz.core.map_selection import (
 from src.plugins.gokz.core.daily_map import get_daily_maps, utc_today
 from src.plugins.gokz.core.daily_map_message import daily_map_message
 from src.plugins.gokz.db.db import engine
-from src.plugins.gokz.db.models import User
+from src.plugins.gokz.db.models import GroupServerSetting, User
+from src.plugins.gokz.core.group_settings import (
+    group_chat_id,
+    group_info_markdown,
+    set_server_target,
+)
+from src.plugins.gokz.core.server_status import (
+    cn_server_group_choices,
+    resolve_server_group_slug,
+    server_group_status_markdown,
+    server_groups_markdown,
+)
+from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from ..api import cs2kz
 from ..api.gokz_top import GOKZTopAPIError, fetch_run_history
 from ..api.helper import fetch_json
@@ -34,6 +47,106 @@ pk = on_command('pk', aliases={'pk'})
 find = on_command('find', aliases={'查找'})
 group_rank = on_command('群排名', aliases={'group_rank'}, permission=SUPERUSER)
 daily = on_command('daily', aliases={'每日地图'})
+server = on_command('server', aliases={'s', 'servers', 'serv'})
+group_info = on_command('group_info')
+set_server = on_command('set_server', permission=SUPERUSER)
+
+
+@group_info.handle()
+async def group_info_handle(event: Event):
+    """Show the current QQ group ID and its configured default server group."""
+    group_id = group_chat_id(event)
+    if not group_id:
+        return await group_info.finish("该命令只能在群聊中使用。")
+
+    with Session(engine) as session:
+        setting = session.get(GroupServerSetting, group_id)
+    content = group_info_markdown(group_id, setting.server_group if setting else None)
+    await group_info.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
+
+
+@set_server.handle()
+async def set_server_handle(event: Event, args: Message = CommandArg()):
+    """Set a group's default public server group for bare /server."""
+    parsed_args = parse_args(args.extract_plain_text())
+    target = set_server_target(parsed_args.get("args", ()), group_chat_id(event))
+    if "error" in parsed_args or target is None:
+        return await set_server.finish(
+            "用法: /set_server <服务器组>\n"
+            "或: /set_server <群组 ID> <服务器组>\n"
+            "例如: /set_server axekz"
+        )
+    group_id, server_identifier = target
+
+    response = await fetch_json(f"{BASE}/servers", params={"offset": 0, "limit": 200}, timeout=30)
+    server_data = response.get("data") if isinstance(response, dict) else None
+    if not isinstance(server_data, list):
+        return await set_server.finish("服务器状态暂时不可用，请稍后再试。")
+
+    server_group = resolve_server_group_slug(server_data, server_identifier)
+    if server_group is None:
+        return await set_server.finish("未找到该服务器组，请使用 `/server` 查看可用服务器组。")
+
+    with Session(engine) as session:
+        setting = session.get(GroupServerSetting, group_id)
+        if setting is None:
+            session.add(GroupServerSetting(group_id=group_id, server_group=server_group))
+        else:
+            setting.server_group = server_group
+            session.add(setting)
+        session.commit()
+    await set_server.finish(f"已将群组 `{group_id}` 的默认服务器组设为 `{server_group}`。")
+
+
+@server.handle()
+async def server_handle(event: Event, args: Message = CommandArg()):
+    """Show public GOKZ.TOP server groups and their live text status."""
+    parsed_args = parse_args(args.extract_plain_text())
+    if "error" in parsed_args:
+        return await server.finish("用法: /server [服务器组]\n例如: /server axekz")
+
+    response = await fetch_json(f"{BASE}/servers", params={"offset": 0, "limit": 200}, timeout=30)
+    server_data = response.get("data") if isinstance(response, dict) else None
+    if not isinstance(server_data, list):
+        return await server.finish("服务器状态暂时不可用，请稍后再试。")
+
+    group_identifier = " ".join(parsed_args["args"]).strip()
+    if not group_identifier:
+        group_id = group_chat_id(event)
+        if group_id:
+            with Session(engine) as session:
+                setting = session.get(GroupServerSetting, group_id)
+            group_identifier = setting.server_group if setting else ""
+    if not group_identifier:
+        content = server_groups_markdown(server_data)
+        # QQ allows at most five keyboard rows. Two columns retain room for
+        # every current CN group without reintroducing the row-limit error.
+        buttons = [
+            KeyboardBuilder.button(
+                id=f"server_{slug}",
+                label=name,
+                visited_label="查看服务器",
+                style=1,
+                action_type=2,
+                permission_type=2,
+                action_data=f"/server {slug}",
+                reply=True,
+                enter=True,
+            )
+            for slug, name in cn_server_group_choices(server_data)[:10]
+        ]
+        message = MessageSegment.markdown(MessageMarkdown(content=content))
+        if buttons:
+            message += KeyboardBuilder.keyboard(
+                *(buttons[index:index + 2] for index in range(0, len(buttons), 2))
+            )
+        return await server.finish(message)
+
+    content = server_group_status_markdown(server_data, group_identifier)
+    if content is None:
+        content = "未找到可用的在线服务器组。\n\n" + server_groups_markdown(server_data)
+        return await server.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
+    await server.finish(MessageSegment.markdown(MessageMarkdown(content=content)))
 
 
 @daily.handle()

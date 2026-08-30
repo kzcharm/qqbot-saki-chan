@@ -18,7 +18,8 @@ from nonebot.rule import CommandRule
 PANEL_REMARK_PREFIX = "gokz-qqbot commands"
 PANEL_ITEM_LIMIT = 20
 PANEL_SCOPES = ("c2c", "group")
-PANEL_EXCLUDED_COMMANDS = {"test", "markdown_test"}
+PANEL_EXCLUDED_COMMANDS = {"test", "markdown_test", "group_info"}
+PANEL_HIDDEN_ALIASES = {"server"}
 PANEL_FEATURED_COMMANDS = ("daily",)
 
 # Derived from data/gokz/help.png. Keep descriptions short: QQ limits them to
@@ -36,6 +37,7 @@ COMMAND_DESCRIPTIONS = {
     "wr": "查询地图世界记录",
     "rank": "查询 gokz.top 排名",
     "pk": "与他人进行 Rank PK",
+    "server": "查看服务器组与实时状态",
     "mp": "查询地图进步情况",
     "daily": "获取今日开荒与挑战地图",
     "ccf": "查询常玩服务器",
@@ -118,7 +120,8 @@ def collect_commands() -> list[tuple[str, str, bool]]:
             if only_admin or canonical in PANEL_EXCLUDED_COMMANDS:
                 continue
 
-            for target, bucket in ((canonical, primary), *[(name, aliases) for name in names if name != canonical]):
+            alias_names = () if canonical in PANEL_HIDDEN_ALIASES else (name for name in names if name != canonical)
+            for target, bucket in ((canonical, primary), *((name, aliases) for name in alias_names)):
                 panel_name = f"/{target}"
                 if panel_name in seen or len(panel_name) > 14:
                     continue

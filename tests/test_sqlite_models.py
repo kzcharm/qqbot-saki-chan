@@ -28,6 +28,7 @@ class SQLiteModelsTest(unittest.TestCase):
                 "qqbot_complimented_runs",
                 "qqbot_daily_map_assignments",
                 "qqbot_daily_map_cache",
+                "qqbot_group_server_settings",
                 "qqbot_users",
             ],
         )
@@ -39,6 +40,8 @@ class SQLiteModelsTest(unittest.TestCase):
         with Session(engine) as session:
             session.add(models.User(qid="qid", name="name", steamid="steamid"))
             session.add(models.ComplimentedRun(record_id=123))
+            session.add(models.GroupServerSetting(group_id="group", server_group="axekz"))
             session.commit()
             self.assertEqual(session.get(models.User, "qid").steamid, "steamid")
             self.assertIsNotNone(session.get(models.ComplimentedRun, 123))
+            self.assertEqual(session.get(models.GroupServerSetting, "group").server_group, "axekz")

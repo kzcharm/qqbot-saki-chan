@@ -42,6 +42,11 @@ class TestCommandHelper(unittest.TestCase):
         self.assertIsNone(parsed["mode"])
         self.assertEqual(parsed["args"], ("innit",))
 
+    def test_multi_word_server_group_name_remains_positional_arguments(self):
+        parsed = self.parse_args("House of Climb")
+
+        self.assertEqual(parsed["args"], ("House", "of", "Climb"))
+
     def test_mode_can_appear_before_or_after_map(self):
         for text, mode in (("k innit", "k"), ("innit k", "k"), ("KZT innit", "kzt"), ("innit kz_timer", "kz_timer"), ("OVR innit", "ovr")):
             with self.subTest(text=text):

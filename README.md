@@ -50,6 +50,8 @@ nb run --reload
 
 - `/rank` | `/排行` 查询玩家的[gokz.top](https://gokz.top/)排名
 - `/pk` 与他人进行Rank PK, 需要用 `-q` 或者 `-s` 指定对手
+- `/server` 列出可用服务器组；`/server <服务器组或名称>` 查看实时服务器状态，例如 `/server axekz`。别名：`/s`、`/servers`、`/serv`。
+- `/group_info` 在群聊中查看群组 ID 与默认服务器组；根用户可用 `/set_server <服务器组>` 为当前群设置默认值，或 `/set_server <群组 ID> <服务器组>` 远程设置。此后直接 `/server` 查询该服务器组。
 
 - `/mp`| `/mapprogress` |`/进度 <map_name>` 查询玩家在某张地图上的进步情况
 - `/daily` | `/每日地图` 获取今日的挑战旧图和开荒新图；当天重复查询会返回相同结果

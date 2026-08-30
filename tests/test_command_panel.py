@@ -14,6 +14,7 @@ SPEC.loader.exec_module(command_panel)
 
 COMMAND_DESCRIPTIONS = command_panel.COMMAND_DESCRIPTIONS
 PANEL_ITEM_LIMIT = command_panel.PANEL_ITEM_LIMIT
+PANEL_EXCLUDED_COMMANDS = command_panel.PANEL_EXCLUDED_COMMANDS
 _panel_payload = command_panel._panel_payload
 _prioritize_commands = command_panel._prioritize_commands
 
@@ -35,3 +36,6 @@ class TestCommandPanel(unittest.TestCase):
         commands.append(("/daily", "获取今日开荒与挑战地图", False))
 
         self.assertEqual(_prioritize_commands(commands)[0][0], "/daily")
+
+    def test_group_info_is_not_registered_in_the_command_panel(self):
+        self.assertIn("group_info", PANEL_EXCLUDED_COMMANDS)

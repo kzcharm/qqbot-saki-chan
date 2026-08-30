@@ -22,7 +22,6 @@ require("nonebot_plugin_localstore")
 
 executor = ThreadPoolExecutor(max_workers=5)
 
-
 async def kzgoeu_screenshot_async(steamid, kz_mode, force_update=False):
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
