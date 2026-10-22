@@ -25,7 +25,9 @@ from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
 from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async, vnl_screenshot_async, kzgoeu_screenshot_async
+from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async
+from src.plugins.gokz.core.kz.player_card import player_card_screenshot_async
+import nonebot_plugin_localstore as store
 from src.plugins.gokz.core.map_img_url import (
     get_cs2kz_preferred_map_img_path,
     get_map_img_url,
@@ -1165,12 +1167,15 @@ async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
             profile_url = f"https://cs2kz.org/profile/{cs2kz.cs2kz_player_id(cd.steamid)}"
             logger.warning(f"CS2KZ screenshot failed for {cd.steamid}: {exc!r}")
             return await bot.send(event, f"CS2KZ资料页截图生成失败，可直接查看:\n{profile_url}")
-    elif cd.mode == "kz_vanilla":
-        await bot.send(event, "客服小祥正在为您: 生成vnl-kz图片...")
-        url = await vnl_screenshot_async(cd.steamid, force_update=cd.update)
     else:
-        await bot.send(event, "客服小祥正在为您: 生成kzgo-eu图片...")
-        url = await kzgoeu_screenshot_async(cd.steamid, cd.mode, force_update=cd.update)
+        await bot.send(event, "正在生成玩家卡片…")
+        try:
+            url = await player_card_screenshot_async(
+                cd.steamid, cd.mode, store.get_cache_dir("player_cards"), force_update=cd.update,
+            )
+        except Exception as exc:
+            logger.warning(f"Player card failed for {cd.steamid}: {type(exc).__name__}")
+            return await bot.send(event, f"玩家卡片生成失败，可直接查看资料：\nhttps://gokz.top/profile/{cd.steamid}")
 
     image_path = Path(url)
     if image_path.exists():
