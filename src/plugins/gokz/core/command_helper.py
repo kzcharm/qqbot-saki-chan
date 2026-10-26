@@ -11,17 +11,14 @@ from src.plugins.gokz.db.db import engine
 from src.plugins.gokz.db.models import User
 from src.plugins.gokz.core.kreedz import format_kzmode
 from src.plugins.gokz.core.steam_user import convert_steamid
-from src.plugins.gokz.core.game import format_cs2kz_mode
 from src.plugins.gokz.core.binding_message import binding_help_message
 
 
 @dataclass
 class CommandData:
-    game: str
     mode: str
     qid: str
     map_name: str
-    course: str
     steamid: str
     steamid2: Optional[str] = None
     args: Tuple = field(default_factory=tuple)
@@ -72,24 +69,13 @@ class CommandData:
                 self.steamid = convert_steamid(requested_steamid, 64) if requested_steamid else user.steamid
                 self.steamid2 = user.steamid if requested_steamid else None
 
-        self.game = parsed_args.get('game') or getattr(user, "game", "gokz")
-        if self.game == "cs2kz":
-            mode = parsed_args.get('mode') or getattr(user, "cs2kz_mode", "classic")
-            try:
-                self.mode = format_cs2kz_mode(mode)
-            except ValueError:
-                self.error = "CS2KZ模式格式不正确"
-                return
-        else:
-            try:
-                # Keep the query scope so OVR is not reduced to its KZT
-                # concrete-mode fallback before the command handler sees it.
-                self.mode = format_kzmode(parsed_args.get('mode') or user.mode, "m")
-            except ValueError:
-                self.error = "模式格式不正确"
-                return
+        try:
+            # Preserve the aggregate OVR scope for downstream handlers.
+            self.mode = format_kzmode(parsed_args.get('mode') or user.mode, "m")
+        except ValueError:
+            self.error = "模式格式不正确"
+            return
         self.map_name = parsed_args.get('map_name', "")
-        self.course = parsed_args.get('course') or "Main"
         self.update = parsed_args.get('update', False)
         self.args = parsed_args.get('args', ())
 
@@ -108,14 +94,11 @@ def parse_args(text: str) -> dict:
     parser.add_argument('-s', '--steamid', type=str, help='Steam ID')
     parser.add_argument('-q', '--qid', type=str, help='QQ ID')
     parser.add_argument('-u', '--update', action='store_true', help='Update flag')
-    parser.add_argument('-c', '--course', type=str, help='CS2KZ course name')
-
-    game_group = parser.add_mutually_exclusive_group()
-    game_group.add_argument('-g', '--gokz', action='store_const', const='gokz', dest='game', help='Use GOKZ')
-    game_group.add_argument('-2', '--cs2kz', action='store_const', const='cs2kz', dest='game', help='Use CS2KZ')
-
     try:
         args = shlex.split(text)
+        # argparse otherwise treats the removed numeric flag as a positional value.
+        if "-2" in args:
+            return {"error": "不支持的参数: -2"}
         
         # Preprocess: find mode flags in positional arguments and convert them to -m <mode>
         # Only do this if -m or --mode is not already present
@@ -159,6 +142,6 @@ def parse_args(text: str) -> dict:
     except argparse.ArgumentError as e:
         return {'error': f'Argument error: {str(e)}'}
     except SystemExit:
-        return {'error': f'未指定参数'}
+        return {'error': '参数格式不正确，请使用 /help 查看用法。'}
     except Exception as e:
         return {'error': str(e)}

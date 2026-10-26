@@ -1,5 +1,4 @@
 import asyncio
-from collections import Counter
 from textwrap import dedent
 
 from nonebot import on_command, logger
@@ -11,7 +10,6 @@ from sqlmodel import Session
 
 from src.plugins.gokz.core.command_helper import CommandData, parse_args
 from src.plugins.gokz.core.formatter import diff_seconds_to_time, format_gruntime, record_format_time
-from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import format_kzmode
 from src.plugins.gokz.core.map_selection import (
     map_command,
@@ -21,7 +19,7 @@ from src.plugins.gokz.core.map_selection import (
 from src.plugins.gokz.core.daily_map import get_daily_maps, utc_today
 from src.plugins.gokz.core.daily_map_message import daily_map_message
 from src.plugins.gokz.db.db import engine
-from src.plugins.gokz.db.models import GroupServerSetting, User
+from src.plugins.gokz.db.models import GroupServerSetting
 from src.plugins.gokz.core.group_settings import (
     group_chat_id,
     group_info_markdown,
@@ -34,7 +32,6 @@ from src.plugins.gokz.core.server_status import (
     server_groups_markdown,
 )
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
-from ..api import cs2kz
 from ..api.gokz_top import GOKZTopAPIError, fetch_run_history
 from ..api.helper import fetch_json
 from nonebot.adapters.qq import MessageSegment
@@ -154,8 +151,6 @@ async def daily_map(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
     if cd.error:
         return await daily.finish(cd.error)
-    if cd.game == "cs2kz":
-        return await daily.finish("每日地图目前仅支持 GOKZ。")
 
     assignments = await get_daily_maps(cd.qid, cd.steamid, format_kzmode(cd.mode, "m").upper())
     if assignments is None:
@@ -170,18 +165,7 @@ async def find_handle(event: Event, args: Message = CommandArg()):
     if "error" in parsed_args:
         return await find.finish(parsed_args["error"])
     name = " ".join(parsed_args["args"])
-    with Session(engine) as session:
-        user = session.get(User, event.get_user_id())
-    game = parsed_args.get("game") or getattr(user, "game", "gokz")
     if name:
-        if game == "cs2kz":
-            players = await cs2kz.search_players(name)
-            content = "════查找CS2KZ玩家════\n"
-            content += "\n".join(
-                f"{player['name']} | {player['id']} | CKZ {player.get('ckz_rating', 0):.0f} | VNL {player.get('vnl_rating', 0):.0f}"
-                for player in players
-            ) or "未找到该玩家"
-            return await find.finish(content)
         players_data = await fetch_json(f"{BASE}/players/search", params={"q": name, "limit": 10})
         
         if players_data is None:
@@ -216,14 +200,6 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
     if cd.error:
         return await ccf.finish(cd.error)
 
-    if cd.game == "cs2kz":
-        records = await cs2kz.fetch_profile_records(cd.steamid, cd.mode)
-        if not records:
-            return await ccf.finish("未找到CS2KZ记录")
-        counts = Counter(record["server"]["name"] for record in records)
-        content = f"════CS2KZ成分查询════\n玩家:　{records[0]['player']['name']}\n模式:　{format_cs2kz_mode_label(cd.mode)}\n"
-        content += "\n".join(f"{index}. {server} | {count}次 | ({count / len(records) * 100:.2f}%)" for index, (server, count) in enumerate(counts.most_common(10), 1))
-        return await ccf.finish(content)
 
     preset_aliases = {
         'all': 'all',
@@ -297,23 +273,6 @@ async def map_progress(event: Event, args: Message = CommandArg()):
 
     if not cd.args:
         return await progress.finish("🗺地图名都不给我怎么帮你查进度 (￣^￣) ")
-    if cd.game == "cs2kz":
-        map_data = await cs2kz.fetch_map(cd.args[0])
-        if not map_data:
-            return await progress.finish("未找到CS2KZ地图")
-        map_name = map_data["name"]
-        course = cs2kz.find_course(map_data, cd.course)
-        data = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, sort_order="ascending", limit=10000)
-        if not data:
-            return await progress.finish(f"你尚未完成过{map_name} - {course}")
-        records = []
-        for record in data:
-            if not records or record["time"] < records[-1]["time"]:
-                records.append(record)
-        content = f"玩家: {data[0]['player']['name']}\n在地图: {map_name} - {course}\n模式: {format_cs2kz_mode_label(cd.mode)} 的进度\n"
-        for record in reversed(records):
-            content += f"╔ {format_gruntime(record['time'], True)} | {record['teleports']} TPs | #{cs2kz.record_rank(record) or '-'}\n"
-        return await progress.finish(content)
 
     map_name, candidates = resolve_map_name(cd.args[0])
     if candidates:

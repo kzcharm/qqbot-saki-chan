@@ -27,24 +27,16 @@ class TestModeMessage(unittest.TestCase):
         )
 
     def test_mode_picker_contains_all_modes_and_direct_submit_buttons(self):
-        message = self.mode_message.mode_selection_message("gokz", "SKZ")
+        message = self.mode_message.mode_selection_message("SKZ")
 
         self.assertEqual([segment.type for segment in message], ["markdown", "keyboard"])
         self.assertIn("当前模式：**SKZ**", message[0].data["markdown"].content)
         rows = message[1].data["keyboard"].content.rows
-        self.assertEqual([len(row.buttons) for row in rows], [4, 2])
+        self.assertEqual([len(row.buttons) for row in rows], [4])
         buttons = [button for row in rows for button in row.buttons]
         self.assertEqual(
             [button.action.data for button in buttons],
-            ["/mode gokz ovr", "/mode gokz kzt", "/mode gokz skz", "/mode gokz vnl", "/mode cs2kz classic", "/mode cs2kz vanilla"],
+            ["/mode ovr", "/mode kzt", "/mode skz", "/mode vnl"],
         )
         self.assertTrue(all(button.action.enter for button in buttons))
         self.assertEqual(buttons[2].render_data.style, 1)
-
-    def test_cs2kz_mode_picker_highlights_the_cs2_mode(self):
-        message = self.mode_message.mode_selection_message("cs2kz", "VNL")
-
-        self.assertIn("当前游戏：**CS2KZ**", message[0].data["markdown"].content)
-        rows = message[1].data["keyboard"].content.rows
-        buttons = [button for row in rows for button in row.buttons]
-        self.assertEqual(buttons[5].render_data.style, 1)

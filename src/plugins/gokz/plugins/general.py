@@ -11,7 +11,6 @@ from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, select
 
 from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.game import format_cs2kz_mode, format_cs2kz_mode_label, format_game, toggle_game
 from src.plugins.gokz.core.steam_user import convert_steamid
 from src.plugins.gokz.core.binding_code import verify_binding_code
 from src.plugins.gokz.core.binding_message import binding_help_message
@@ -21,15 +20,12 @@ from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.config import QQ_BOT_SECRET
 from ..api.helper import fetch_json
 from ..core.command_helper import CommandData
-from ..db.db import engine, create_db_and_tables
+from ..db.db import engine
 from ..db.models import User
-
-create_db_and_tables()
 
 
 bind = on_command("bind", aliases={"绑定"})
 mode = on_command("mode", aliases={"模式"})
-game = on_command("game", aliases={"游戏"})
 test = on_command("test")
 markdown_test = on_command("markdown_test", aliases={"测试Markdown"})
 help_ = on_command('help', aliases={"帮助"})
@@ -95,7 +91,7 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
         steamID:      {convert_steamid(cd.steamid, 2)}
         steamID32:  {convert_steamid(cd.steamid, 32)}
         steamID64:  {convert_steamid(cd.steamid, 64)}
-        默认模式:      {format_cs2kz_mode_label(cd.mode) if cd.game == "cs2kz" else format_kzmode(cd.mode, form='m').upper()}
+        默认模式:      {format_kzmode(cd.mode, form='m').upper()}
         QID: {cd.qid}
     """).strip()
     # Add newline at start for group messages (bot will @ user automatically)
@@ -251,16 +247,11 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
         return await mode.finish(binding_help_message())
 
     if not mode_:
-        current = format_cs2kz_mode_label(user.cs2kz_mode) if user.game == "cs2kz" else format_kzmode(user.mode, "m").upper()
-        return await mode.finish(mode_selection_message(user.game, current))
-
-    selected_game = user.game
-    parts = mode_.split(maxsplit=1)
-    if len(parts) == 2 and parts[0].lower() in {"gokz", "cs2kz"}:
-        selected_game, mode_ = parts[0].lower(), parts[1]
+        current = format_kzmode(user.mode, "m").upper()
+        return await mode.finish(mode_selection_message(current))
 
     try:
-        mode_ = format_cs2kz_mode_label(mode_) if selected_game == "cs2kz" else format_kzmode(mode_, "m").upper()
+        mode_ = format_kzmode(mode_, "m").upper()
     except ValueError:
         return await mode.finish("模式格式不正确")
 
@@ -270,29 +261,9 @@ async def update_mode(event: MessageEvent, args: Message = CommandArg()):
         if not user:
             return await mode.finish(binding_help_message())
 
-        user.game = selected_game
-        if selected_game == "cs2kz":
-            user.cs2kz_mode = mode_
-        else:
-            user.mode = mode_
+        user.mode = mode_
         session.add(user)
         session.commit()
         session.refresh(user)
 
-    await mode.finish(mode_selection_message(selected_game, mode_))
-
-
-@game.handle()
-async def update_game(event: MessageEvent, args: Message = CommandArg()):
-    with Session(engine) as session:
-        user = session.get(User, event.get_user_id())
-        if not user:
-            return await game.finish(binding_help_message())
-        try:
-            selected_game = format_game(args.extract_plain_text()) if args.extract_plain_text() else toggle_game(user.game)
-        except ValueError:
-            return await game.finish("游戏格式不正确，可选: gokz | cs2kz")
-        user.game = selected_game
-        session.add(user)
-        session.commit()
-    await game.finish(f"默认游戏已更新为: {selected_game}")
+    await mode.finish(mode_selection_message(mode_))

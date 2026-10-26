@@ -26,7 +26,6 @@ class TestCommandHelper(unittest.TestCase):
         sys.modules["src.plugins.gokz.db.db"] = types.SimpleNamespace(engine=None)
         sys.modules["src.plugins.gokz.db.models"] = types.SimpleNamespace(User=object)
         sys.modules["src.plugins.gokz.core.steam_user"] = types.SimpleNamespace(convert_steamid=lambda value, _: value)
-        sys.modules["src.plugins.gokz.core.game"] = types.SimpleNamespace(format_cs2kz_mode=lambda mode: mode)
         cls.binding_help_message = object()
         sys.modules["src.plugins.gokz.core.binding_message"] = types.SimpleNamespace(
             binding_help_message=lambda: cls.binding_help_message
@@ -35,6 +34,11 @@ class TestCommandHelper(unittest.TestCase):
             "src.plugins.gokz.core.command_helper", ROOT / "src/plugins/gokz/core/command_helper.py"
         )
         cls.parse_args = staticmethod(cls.command_helper.parse_args)
+
+    def test_removed_flags_are_argument_errors(self):
+        for text in ("-2", "--cs2kz", "-g", "--gokz", "-c Main", "--course Main"):
+            with self.subTest(text=text):
+                self.assertIn("error", self.parse_args(text))
 
     def test_map_name_is_not_treated_as_mode(self):
         parsed = self.parse_args("innit")

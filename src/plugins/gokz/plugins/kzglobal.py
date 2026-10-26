@@ -18,20 +18,13 @@ from ..api.gokz_top import (
     fetch_personal_recent,
     fetch_world_record,
 )
-from ..api import cs2kz
 from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
-from src.plugins.gokz.core.game import format_cs2kz_mode_label
 from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.kz.screenshot import cs2kz_screenshot_async
 from src.plugins.gokz.core.kz.player_card import player_card_screenshot_async
 import nonebot_plugin_localstore as store
-from src.plugins.gokz.core.map_img_url import (
-    get_cs2kz_preferred_map_img_path,
-    get_map_img_url,
-)
 from src.plugins.gokz.core.map_selection import (
     map_command,
     map_selection_message,
@@ -95,7 +88,6 @@ def pb_action_keyboard(
     event: Event,
     cd: CommandData,
     map_name: str,
-    course: str | None = None,
     include_other_modes: bool = True,
 ):
     """Build follow-up actions for a PB result.
@@ -104,22 +96,14 @@ def pb_action_keyboard(
     Its command deliberately has no player target, so it resolves to the
     group member who taps it. ``enter=True`` submits it directly.
     """
-    mode = (
-        f" -m {cd.mode}" if cd.game == "cs2kz"
-        else f" -m {format_kzmode(cd.mode, 'm').upper()}"
-    ) if cd.mode else ""
-    game = " -2" if cd.game == "cs2kz" else ""
-    course_arg = f" -c {course}" if course and cd.game == "cs2kz" and course != "Main" else ""
+    mode = f" -m {format_kzmode(cd.mode, 'm').upper()}" if cd.mode else ""
     target_arg = f" -s {cd.steamid}" if cd.steamid2 and cd.steamid != cd.steamid2 else ""
-    if cd.game == "cs2kz":
-        other_modes = [("VNL", "vanilla")] if cd.mode == "classic" else [("CKZ", "classic")]
-    else:
-        current_mode = format_kzmode(cd.mode, "m")
-        other_modes = [
-            (label, value)
-            for label, value in (("OVR", "OVR"), ("KZT", "KZT"), ("SKZ", "SKZ"), ("VNL", "VNL"))
-            if value.lower() != current_mode
-        ]
+    current_mode = format_kzmode(cd.mode, "m")
+    other_modes = [
+        (label, value)
+        for label, value in (("OVR", "OVR"), ("KZT", "KZT"), ("SKZ", "SKZ"), ("VNL", "VNL"))
+        if value.lower() != current_mode
+    ]
     actions = []
     # The QQ adapter identifies groups with ``group_openid``.  Keep
     # ``group_id`` as a fallback for compatible event implementations.
@@ -135,7 +119,7 @@ def pb_action_keyboard(
                 style=1,
                 action_type=2,
                 permission_type=2,
-                action_data=f"/pb {map_name}{mode}{game}{course_arg}",
+                action_data=f"/pb {map_name}{mode}",
                 reply=True,
                 enter=True,
             )
@@ -148,25 +132,24 @@ def pb_action_keyboard(
             style=1,
             action_type=2,
             permission_type=2,
-            action_data=f"/wr {map_name}{mode}{game}{course_arg}",
+            action_data=f"/wr {map_name}{mode}",
             reply=True,
             enter=True,
         )
     )
-    if cd.game != "cs2kz":
-        actions.append(
-            KeyboardBuilder.button(
-                id="pb_leaderboard",
-                label="排行榜",
-                visited_label="打开中",
-                style=1,
-                action_type=0,
-                permission_type=2,
-                action_data=f"https://gokz.top/maps/{quote(map_name, safe='')}/maptop",
-                reply=False,
-                enter=False,
-            )
+    actions.append(
+        KeyboardBuilder.button(
+            id="pb_leaderboard",
+            label="排行榜",
+            visited_label="打开中",
+            style=1,
+            action_type=0,
+            permission_type=2,
+            action_data=f"https://gokz.top/maps/{quote(map_name, safe='')}/maptop",
+            reply=False,
+            enter=False,
         )
+    )
     actions.append(
         KeyboardBuilder.button(
             id="pb_progress",
@@ -175,7 +158,7 @@ def pb_action_keyboard(
             style=1,
             action_type=2,
             permission_type=2,
-            action_data=f"/mp {map_name}{mode}{game}{course_arg}{target_arg}",
+            action_data=f"/mp {map_name}{mode}{target_arg}",
             reply=True,
             enter=True,
         )
@@ -189,7 +172,7 @@ def pb_action_keyboard(
                 style=1,
                 action_type=2,
                 permission_type=2,
-                action_data=f"/pb {map_name} -m {other_mode}{game}{course_arg}{target_arg}",
+                action_data=f"/pb {map_name} -m {other_mode}{target_arg}",
                 reply=True,
                 enter=True,
             )
@@ -271,16 +254,6 @@ def normalize_leaderboard_rank(data: dict) -> dict:
         "map_finished": data.get("unique_map_finishes") or 0,
         "last_updated": "N/A",
     }
-
-
-def cs2_record_text(record: dict, pro: bool | None = None) -> str:
-    return dedent(f"""
-        ║ 玩家:　　{record['player']['name']}
-        ║ 用时:　　{format_gruntime(record['time'])}
-        ║ 存点:　　{record['teleports']}
-        ║ 分数:　　{(cs2kz.record_points(record, pro) or 0):.0f}
-        ║ 排名:　　#{cs2kz.record_rank(record, pro) or '-'}
-        ║ 服务器:　{record['server']['name']}""").strip()
 
 
 def gokz_record_mode_label(record: dict, query_scope: str) -> str:
@@ -372,32 +345,6 @@ async def _(event: Event, args: Message = CommandArg()):
     if not cd.args:
         return await wr.finish("🗺地图名都不给我怎么帮你查WR (￣^￣) ")
 
-    if cd.game == "cs2kz":
-        map_data = await cs2kz.fetch_map(cd.args[0])
-        if not map_data:
-            return await wr.finish("未找到CS2KZ地图")
-        map_name = map_data["name"]
-        course = cs2kz.find_course(map_data, cd.course)
-        tp_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, max_rank=1, limit=1)
-        pro_records = await cs2kz.fetch_records(map_name=map_name, course=course, mode=cd.mode, has_teleports=False, max_rank=1, limit=1)
-        def cs2_wr_lines(record, pro_mode=False):
-            if not record:
-                return ["未发现记录"]
-            return [
-                f"玩家:　　{record['player']['name']}",
-                f"用时:　　{format_gruntime(record['time'])}",
-                f"存点数:　{record['teleports']}",
-                f"分数:　　{(cs2kz.record_points(record, pro_mode) or 0):.0f}",
-                f"服务器:　{record['server']['name']}",
-            ]
-        content = wr_markdown_content(map_name, [
-            ("地图信息", [f"地图:　　{map_name}", f"关卡:　　{course}", f"模式:　　{format_cs2kz_mode_label(cd.mode)}"]),
-            ("NUB世界纪录", cs2_wr_lines(tp_records[0] if tp_records else None)),
-            ("PRO世界纪录", cs2_wr_lines(pro_records[0] if pro_records else None, True)),
-        ])
-        return await wr.send(MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
-            event, cd, map_name, course, include_other_modes=False,
-        ))
 
     await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
     map_name, candidates = resolve_map_name(cd.args[0])
@@ -466,25 +413,6 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
     if cd.error:
         return await pr.finish(cd.error)
 
-    if cd.game == "cs2kz":
-        records = await cs2kz.fetch_records(player=cd.steamid, mode=cd.mode, limit=1)
-        if not records:
-            return await pr.finish("未找到CS2KZ最近记录")
-        data = records[0]
-        lines = [
-            f"地图:　　{data['map']['name']}",
-            f"关卡:　　{data['course']['name']}",
-            f"模式:　　{format_cs2kz_mode_label(cd.mode)}",
-            f"玩家:　　{data['player']['name']}",
-            f"用时:　　{format_gruntime(data['time'])}",
-            f"存点数:　{data['teleports']}",
-            f"分数:　　{(cs2kz.record_points(data) or 0):.0f}",
-            f"服务器:　{data['server']['name']}",
-        ]
-        content = pr_markdown_content(data['player']['name'], data['map']['name'], lines)
-        return await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
-            event, cd, data['map']['name'], data['course']['name'], include_other_modes=False,
-        ))
 
     try:
         data = await fetch_personal_recent(cd.steamid, format_kzmode(cd.mode, "m"))
@@ -535,41 +463,6 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
     if not cd.args:
         return await wr.finish("🗺地图名都不给我怎么帮你查PB (￣^￣) ")
 
-    if cd.game == "cs2kz":
-        map_data = await cs2kz.fetch_map(cd.args[0])
-        if not map_data:
-            return await pb.finish("未找到CS2KZ地图")
-        map_name = map_data["name"]
-        course = cs2kz.find_course(map_data, cd.course)
-        tp_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, limit=1)
-        pro_records = await cs2kz.fetch_records(player=cd.steamid, map_name=map_name, course=course, mode=cd.mode, top=True, has_teleports=False, limit=1)
-        player_name = (
-            (tp_records[0] if tp_records else pro_records[0])['player']['name']
-            if (tp_records or pro_records) else "未知玩家"
-        )
-        def cs2_lines(record, pro_mode=False):
-            if not record:
-                return ["未发现记录"]
-            return [
-                f"玩家:　　{record['player']['name']}",
-                f"用时:　　{format_gruntime(record['time'])}",
-                f"存点数:　{record['teleports']}",
-                f"分数:　　{(cs2kz.record_points(record, pro_mode) or 0):.0f}",
-                f"排名:　　#{cs2kz.record_rank(record, pro_mode) or '-'}",
-                f"服务器:　{record['server']['name']}",
-            ]
-        content = pb_markdown_content(player_name, map_name, [
-            ("地图信息", [
-                f"地图:　　{map_name}",
-                f"关卡:　　{course}",
-                f"模式:　　{format_cs2kz_mode_label(cd.mode)}",
-            ]),
-            ("NUB记录", cs2_lines(tp_records[0] if tp_records else None)),
-            ("PRO记录", cs2_lines(pro_records[0] if pro_records else None, True)),
-        ])
-        return await bot.send(event, MessageSegment.markdown(MessageMarkdown(content=content)) + pb_action_keyboard(
-            event, cd, map_name, course, include_other_modes=False,
-        ))
 
     await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
     map_name, candidates = resolve_map_name(cd.args[0])
@@ -648,26 +541,6 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
     if cd.error:
         return await rank.finish(cd.error)
 
-    if cd.game == "cs2kz":
-        player = await cs2kz.fetch_player(cd.steamid)
-        if not player:
-            return await rank.finish("未找到CS2KZ玩家")
-        rank_ckz, rank_vnl = await asyncio.gather(
-            cs2kz.fetch_global_rank(player["id"], player.get("ckz_rating", 0), "classic"),
-            cs2kz.fetch_global_rank(player["id"], player.get("vnl_rating", 0), "vanilla"),
-        )
-        content = dedent(f"""
-            ╔════════════
-            ║ 玩家:　　　{player['name']}
-            ║ SteamID:　 {player['id']}
-            ║ 游戏:　　　CS2KZ
-            ║ Rating CKZ: {player.get('ckz_rating', 0):.0f}
-            ║ Rank CKZ:　{f'#{rank_ckz}' if rank_ckz is not None else '-'}
-            ║ Rating VNL: {player.get('vnl_rating', 0):.0f}
-            ║ Rank VNL:　{f'#{rank_vnl}' if rank_vnl is not None else '-'}
-            ║ Prime:　　 {'已验证' if player.get('is_prime_verified') else '未验证'}
-            ╚════════════""").strip()
-        return await rank.finish(content)
 
     leaderboard_url = f"{GOKZ_TOP_V1}/leaderboards/players/{cd.steamid}"
     player_url = f"{GOKZ_TOP_V1}/players/{cd.steamid}"
@@ -1159,23 +1032,14 @@ async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
     if cd.error:
         return await bot.send(event, cd.error)
 
-    if cd.game == "cs2kz":
-        await bot.send(event, "客服小祥正在为您: 生成CS2KZ资料页图片...")
-        try:
-            url = await cs2kz_screenshot_async(cd.steamid, force_update=cd.update)
-        except Exception as exc:
-            profile_url = f"https://cs2kz.org/profile/{cs2kz.cs2kz_player_id(cd.steamid)}"
-            logger.warning(f"CS2KZ screenshot failed for {cd.steamid}: {exc!r}")
-            return await bot.send(event, f"CS2KZ资料页截图生成失败，可直接查看:\n{profile_url}")
-    else:
-        await bot.send(event, "正在生成玩家卡片…")
-        try:
-            url = await player_card_screenshot_async(
-                cd.steamid, cd.mode, store.get_cache_dir("player_cards"), force_update=cd.update,
-            )
-        except Exception as exc:
-            logger.warning(f"Player card failed for {cd.steamid}: {type(exc).__name__}")
-            return await bot.send(event, f"玩家卡片生成失败，可直接查看资料：\nhttps://gokz.top/profile/{cd.steamid}")
+    await bot.send(event, "正在生成玩家卡片…")
+    try:
+        url = await player_card_screenshot_async(
+            cd.steamid, cd.mode, store.get_cache_dir("player_cards"), force_update=cd.update,
+        )
+    except Exception as exc:
+        logger.warning(f"Player card failed for {cd.steamid}: {type(exc).__name__}")
+        return await bot.send(event, f"玩家卡片生成失败，可直接查看资料：\nhttps://gokz.top/profile/{cd.steamid}")
 
     image_path = Path(url)
     if image_path.exists():

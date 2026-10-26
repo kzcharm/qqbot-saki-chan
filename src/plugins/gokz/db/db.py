@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import create_engine
+
+from .migration import initialize_database
 
 DATABASE_PATH = Path("data/qqbot.sqlite3")
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -8,4 +10,4 @@ engine = create_engine(f"sqlite:///{DATABASE_PATH.resolve()}", connect_args={"ch
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    initialize_database(engine)

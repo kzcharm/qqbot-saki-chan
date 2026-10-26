@@ -40,7 +40,6 @@ class TestPbActionKeyboard(unittest.TestCase):
     def test_group_result_includes_self_record_action_for_any_viewer(self):
         event = SimpleNamespace(group_openid="group-1")
         command = SimpleNamespace(
-            game="gokz",
             mode="kzt",
             steamid="sender-steamid",
             steamid2=None,
@@ -58,7 +57,6 @@ class TestPbActionKeyboard(unittest.TestCase):
     def test_private_query_does_not_include_self_record_action(self):
         event = SimpleNamespace()
         command = SimpleNamespace(
-            game="gokz",
             mode="kzt",
             steamid="target-steamid",
             steamid2="sender-steamid",
