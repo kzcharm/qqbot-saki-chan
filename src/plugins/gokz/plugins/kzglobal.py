@@ -6,7 +6,8 @@ from urllib.parse import quote
 from textwrap import dedent
 from zoneinfo import ZoneInfo
 
-from nonebot import get_driver, on_command, logger
+from nonebot import get_driver, logger
+from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg

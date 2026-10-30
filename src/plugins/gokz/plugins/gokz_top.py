@@ -1,7 +1,8 @@
 import asyncio
 from textwrap import dedent
 
-from nonebot import on_command, logger
+from nonebot import logger
+from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import MessageEvent as Event, Message
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg

@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
-from nonebot import on_command, logger
+from nonebot import logger
+from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import Bot, MessageEvent, Message, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg

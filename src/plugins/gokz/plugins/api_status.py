@@ -1,4 +1,4 @@
-from nonebot import on_command
+from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import MessageEvent
 
 from ..api.global_status import check_global_api

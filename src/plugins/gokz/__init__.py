@@ -30,3 +30,8 @@ unified = nonebot.load_plugin("src.plugins.gokz.plugins.unified")
 if unified is None:
     raise RuntimeError("Unable to load the unified GOKZ command application")
 sub_plugins = {unified}
+for module in ("general", "gokz_top", "kzglobal", "api_status", "perfectworld", "feedback"):
+    plugin = nonebot.load_plugin(f"src.plugins.gokz.plugins.{module}")
+    if plugin is None:
+        raise RuntimeError(f"Unable to load preserved QQ handlers: {module}")
+    sub_plugins.add(plugin)

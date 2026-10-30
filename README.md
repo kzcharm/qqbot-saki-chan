@@ -1,6 +1,6 @@
 # GOKZ Bot — QQ and Discord
 
-One NoneBot application runs the official QQ and Discord adapters. Alconna defines the commands once; shared services fetch data and apply feature rules, while QQ uses Chinese Markdown/keyboards and Discord uses English embeds/buttons. The existing repository, image, Compose project, and SQLite path are retained.
+One NoneBot application runs the official QQ and Discord adapters. Discord uses Alconna commands and structured services with English embeds/buttons. QQ retains its original Chinese response handlers, help image, Markdown, keyboards, aliases, and button actions. The adapters share the existing API and persistence infrastructure; Discord presentation changes do not alter QQ output. The existing repository, image, Compose project, and SQLite path are retained.
 
 ## Discord quick start
 

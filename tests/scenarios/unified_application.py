@@ -488,7 +488,26 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(Bot, "send", AsyncMock()) as send:
             await handle_event(bot, event)
             send.assert_awaited_once()
-            self.assertIn("GOKZ", str(send.call_args.args[1]))
+            message = (
+                send.call_args.args[1]
+                if len(send.call_args.args) > 1
+                else send.call_args.kwargs["message"]
+            )
+            from nonebot.adapters.qq import Message
+
+            self.assertTrue(
+                any(segment.type == "file_image" for segment in Message(message)),
+                "QQ /help must retain its original help image, not generic Markdown",
+            )
+
+    def test_qq_command_panel_uses_original_descriptions(self):
+        from src.plugins.gokz.core.command_panel import collect_commands
+
+        commands = collect_commands()
+        self.assertEqual(commands[0][0], "/daily")
+        panel = {name: description for name, description, _ in commands}
+        self.assertEqual(panel["/profile"], "查看玩家资料与链接")
+        self.assertEqual(panel["/pb"], "查询地图个人最佳")
 
     def test_renderer_limits_and_qq_commands(self):
         result = Result("x" * 400, "x" * 5000, fields=[("y" * 300, "z" * 2000)] * 40)

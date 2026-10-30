@@ -1,6 +1,6 @@
 import aiohttp
 from textwrap import dedent
-from nonebot import on_command
+from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from nonebot.params import CommandArg
 from src.plugins.gokz.core.command_helper import CommandData

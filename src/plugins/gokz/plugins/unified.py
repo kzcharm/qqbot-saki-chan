@@ -1,8 +1,5 @@
 """Transport entrypoints for the shared GOKZ application."""
 
-import asyncio
-from dataclasses import replace
-
 from healthcheck import HEALTH_PATH
 from arclet.alconna import Arparma
 from nonebot import get_driver, logger, on_notice
@@ -21,7 +18,6 @@ from nonebot.adapters.discord.event import (
     ApplicationCommandInteractionEvent,
     MessageComponentInteractionEvent,
 )
-from nonebot.adapters.qq import Bot as QQBot, MessageSegment
 from nonebot_plugin_alconna import on_alconna, UniMessage
 from nonebot_plugin_alconna.params import AlconnaMatches
 from nonebot_plugin_alconna.builtins.extensions.discord import DiscordSlashExtension
@@ -31,7 +27,7 @@ from ..application.commands import definition, request_from_result, discord_requ
 from ..application.context import RequestContext
 from ..application.models import CommandInput, Result, UserError
 from ..application.service import execute, player
-from ..presentation import discord, qq
+from ..presentation import discord
 
 
 class GokzSlashExtension(DiscordSlashExtension):
@@ -142,94 +138,60 @@ def context(bot: Bot, event: Event) -> RequestContext:
     )
 
 
-async def dispatch(bot: Bot, event: Event, name: str, request: CommandInput) -> None:
+async def dispatch(
+    bot: DiscordBot, event: Event, name: str, request: CommandInput
+) -> None:
     ctx = context(bot, event)
-    if ctx.platform == "discord":
-        # Local binding checks are quick and keep account errors private before
-        # deciding the visibility of the deferred response.
-        if name not in {
-            "help",
-            "bind",
-            "api",
-            "server",
-            "group_info",
-            "set_server",
-            "find",
-            "feedback",
-            "group_rank",
-            "wr",
-            "review",
-        }:
-            try:
-                await player(
-                    ctx, request, own=name in {"rate", "comment", "pk", "mode"}
-                )
-            except UserError as exc:
-                await discord.defer(bot, event, private=True)
-                await discord.deliver(
-                    bot,
-                    event,
-                    Result("Account connection", exc.en, private=True, tone=exc.tone),
-                )
-                return
-        await discord.defer(
-            bot, event, private=name in {"bind", "set_server", "group_rank"}
-        )
-    else:
-        # QQ mentions contain an open ID, never a Steam ID.
-        for segment in event.get_message():
-            if segment.type == "at":
-                request = replace(
-                    request, user=segment.data.get("qq") or segment.data.get("id")
-                )
-                break
+    if name not in {
+        "help",
+        "bind",
+        "api",
+        "server",
+        "group_info",
+        "set_server",
+        "find",
+        "feedback",
+        "group_rank",
+        "wr",
+        "review",
+    }:
+        try:
+            await player(ctx, request, own=name in {"rate", "comment", "pk", "mode"})
+        except UserError as exc:
+            await discord.defer(bot, event, private=True)
+            await discord.deliver(
+                bot,
+                event,
+                Result("Account connection", exc.en, private=True, tone=exc.tone),
+            )
+            return
+    await discord.defer(
+        bot, event, private=name in {"bind", "set_server", "group_rank"}
+    )
     try:
         result = await execute(ctx, name, request)
     except UserError as exc:
         result = Result(
-            ("Error" if exc.tone == "error" else "Warning")
-            if ctx.platform == "discord"
-            else "提示",
-            exc.en if ctx.platform == "discord" else exc.zh,
+            "Error" if exc.tone == "error" else "Warning",
+            exc.en,
             private=True,
             tone=exc.tone,
         )
     except Exception:
-        logger.exception(f"{ctx.platform} command {name} failed")
+        logger.exception(f"Discord command {name} failed")
         result = Result(
-            "Error" if ctx.platform == "discord" else "提示",
-            "The service is temporarily unavailable. Please try again."
-            if ctx.platform == "discord"
-            else "服务暂时不可用，请稍后重试。",
+            "Error",
+            "The service is temporarily unavailable. Please try again.",
             private=True,
             tone="error",
         )
-    if ctx.platform == "discord":
-        await discord.deliver(bot, event, result)
-    else:
-        await bot.send(event, qq.render(result, ctx.account_id))
-        if result.file:
-            await bot.send(event, MessageSegment.file_image(result.file))
-        if result.record:
-            from ..core.pr_compliment import maybe_send_pr_compliment
-
-            steamid = (
-                request.steamid
-                or result.record.get("steam_id")
-                or (result.record.get("player") or {}).get("steamid64")
-            )
-            if steamid:
-                task = asyncio.create_task(
-                    maybe_send_pr_compliment(bot, event, result.record, str(steamid))
-                )
-                task.add_done_callback(
-                    lambda t: t.exception() if not t.cancelled() else None
-                )
+    await discord.deliver(bot, event, result)
 
 
 def register(spec: CommandSpec) -> None:
     matcher = on_alconna(
         definition(spec),
+        rule=lambda bot: isinstance(bot, DiscordBot),
         aliases=set(spec.aliases),
         extensions=[GokzSlashExtension(spec)],
         auto_send_output=False,
@@ -252,8 +214,6 @@ def register(spec: CommandSpec) -> None:
             if ctx.platform == "discord":
                 await discord.defer(bot, event, private=True)
                 await discord.deliver(bot, event, result)
-            else:
-                await bot.send(event, qq.render(result, ctx.account_id))
             return
         if isinstance(event, ApplicationCommandInteractionEvent):
             request = discord_request(spec, event.data.options)
@@ -321,34 +281,3 @@ async def disconnected(bot: Bot) -> None:
     HEALTH_PATH.write_text(
         __import__("json").dumps(sorted(set(connected_platforms.values())))
     )
-
-
-def register_qq_diagnostic(name: str) -> None:
-    matcher = on_alconna(
-        "/" + name,
-        auto_send_output=False,
-        block=True,
-        priority=5,
-        rule=lambda bot: isinstance(bot, QQBot),
-    )
-
-    @matcher.handle()
-    async def diagnostic(bot: QQBot, event: Event):
-        from nonebot.adapters.qq.models import MessageMarkdown
-
-        content = "# Markdown 测试\n\n**加粗**、_斜体_、~~删除线~~\n\n[打开 GOKZ.TOP](https://gokz.top)\n\n> 测试完成。"
-        if name == "test":
-            result = Result(
-                "图片与键盘测试",
-                image="https://api.gokz.top/v1/maps/images/bkz_apricity_v3.webp",
-                choices=[("再次测试", "test", CommandInput())],
-            )
-            await bot.send(event, qq.render(result, event.get_user_id()))
-        else:
-            await bot.send(
-                event, MessageSegment.markdown(MessageMarkdown(content=content))
-            )
-
-
-register_qq_diagnostic("test")
-register_qq_diagnostic("markdown_test")

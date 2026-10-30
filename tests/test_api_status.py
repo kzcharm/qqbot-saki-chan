@@ -114,7 +114,7 @@ class TestAPIStatusCommand(unittest.IsolatedAsyncioTestCase):
         self.register = MagicMock(return_value=self.matcher)
         self.check = AsyncMock()
         modules = {
-            "nonebot": types.SimpleNamespace(on_command=self.register),
+            "api_status_tests.presentation.qq_legacy": types.SimpleNamespace(on_command=self.register),
             "nonebot.adapters.qq": types.SimpleNamespace(MessageEvent=object),
             "api_status_tests.api.global_status": types.SimpleNamespace(check_global_api=self.check),
         }
