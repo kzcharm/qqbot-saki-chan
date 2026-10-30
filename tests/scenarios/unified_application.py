@@ -23,7 +23,7 @@ from src.plugins.gokz.application.catalog import BY_NAME, COMMANDS
 from src.plugins.gokz.application.commands import (
     definition,
     request_from_result,
-    discord_tokens,
+    discord_request,
 )
 from src.plugins.gokz.application.context import RequestContext
 from src.plugins.gokz.application.models import CommandInput, Result, UserError
@@ -49,13 +49,26 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
                 "comment": "great map -m is part of this comment",
             }.items()
         ]
-        raw = discord_tokens(BY_NAME["comment"], options)
-        request = self.request("comment", raw)
-        self.assertEqual(
-            request.arguments, ("cakewalk", "great map -m is part of this comment")
-        )
+        request = discord_request(BY_NAME["comment"], options)
+        self.assertEqual(request.arguments, ("cakewalk",))
+        self.assertEqual(request.comment, "great map -m is part of this comment")
         self.assertEqual(request.mode, "VNL")
         self.assertEqual(request.user, "123")
+        rated = discord_request(
+            BY_NAME["rate"],
+            [
+                SimpleNamespace(name=k, value=v)
+                for k, v in {
+                    "map": "cakewalk",
+                    "overall": 5,
+                    "comment": '-m "literal comment"',
+                }.items()
+            ],
+        )
+        self.assertEqual(rated.arguments, ("cakewalk",))
+        self.assertEqual(rated.overall, 5)
+        self.assertEqual(rated.comment, '-m "literal comment"')
+
         self.assertEqual(self.request("pb", "/pb cakewalk skz -u").mode, "skz")
         self.assertTrue(self.request("pb", "/pb cakewalk skz -u").update)
 

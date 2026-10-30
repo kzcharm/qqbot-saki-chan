@@ -27,7 +27,7 @@ from nonebot_plugin_alconna.params import AlconnaMatches
 from nonebot_plugin_alconna.builtins.extensions.discord import DiscordSlashExtension
 
 from ..application.catalog import COMMANDS, CommandSpec
-from ..application.commands import definition, request_from_result, discord_tokens
+from ..application.commands import definition, request_from_result, discord_request
 from ..application.context import RequestContext
 from ..application.models import CommandInput, Result, UserError
 from ..application.service import execute
@@ -115,7 +115,7 @@ class GokzSlashExtension(DiscordSlashExtension):
     async def message_provider(self, event, state, bot, use_origin=False):
         if not isinstance(event, ApplicationCommandInteractionEvent):
             return None
-        return UniMessage(discord_tokens(self.spec, event.data.options))
+        return UniMessage(f"/{self.spec.name}")
 
 
 def context(bot: Bot, event: Event) -> RequestContext:
@@ -222,19 +222,7 @@ def register(spec: CommandSpec) -> None:
                 await bot.send(event, qq.render(result, ctx.account_id))
             return
         if isinstance(event, ApplicationCommandInteractionEvent):
-            values = {
-                o.name: o.value
-                for o in (
-                    event.data.options if isinstance(event.data.options, list) else []
-                )
-            }
-            request = replace(
-                request,
-                overall=values.get("overall"),
-                gameplay=values.get("gameplay"),
-                visuals=values.get("visuals"),
-                comment=values.get("comment"),
-            )
+            request = discord_request(spec, event.data.options)
         await dispatch(bot, event, spec.name, request)
 
 

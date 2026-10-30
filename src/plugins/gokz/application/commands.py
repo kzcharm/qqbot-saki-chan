@@ -1,6 +1,5 @@
 """Alconna definitions and lossless Discord slash-option conversion."""
 
-import shlex
 import re
 from typing import Any
 from nepattern import ANY
@@ -87,19 +86,25 @@ def request_from_result(result: Arparma, name: str | None = None) -> CommandInpu
     )
 
 
-def discord_tokens(spec: CommandSpec, options: Any) -> str:
+def discord_request(spec: CommandSpec, options: Any) -> CommandInput:
+    """Preserve typed slash values directly; never reparse user-authored text."""
     values = {
         option.name: option.value
         for option in (options if isinstance(options, list) else [])
     }
-    args = [f"/{spec.name}"]
-    if spec.argument and spec.argument in values:
-        args.append(str(values[spec.argument]))
-    if values.get("comment"):
-        args.append(str(values["comment"]))
-    for name, flag in (("mode", "-m"), ("steamid", "-s"), ("user", "-q")):
-        if name in values and not (spec.name == "mode" and name == "mode"):
-            args.extend((flag, str(values[name])))
-    if values.get("update"):
-        args.append("-u")
-    return shlex.join(args)
+    arguments = (
+        (str(values[spec.argument]),)
+        if spec.argument and spec.argument in values
+        else ()
+    )
+    return CommandInput(
+        arguments=arguments,
+        mode=values.get("mode") if spec.name != "mode" else None,
+        steamid=values.get("steamid"),
+        user=str(values["user"]) if values.get("user") else None,
+        update=bool(values.get("update", False)),
+        overall=values.get("overall"),
+        gameplay=values.get("gameplay"),
+        visuals=values.get("visuals"),
+        comment=values.get("comment"),
+    )
