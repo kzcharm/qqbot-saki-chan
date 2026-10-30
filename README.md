@@ -1,6 +1,35 @@
-# qqbot-saki-chan
+# GOKZ Bot — QQ and Discord
 
->  该机器人支持添加到好友列表私聊命令使用, 机器人会自动同意
+One NoneBot application runs the official QQ and Discord adapters. Alconna defines the commands once; shared services fetch data and apply feature rules, while QQ uses Chinese Markdown/keyboards and Discord uses English embeds/buttons. The existing repository, image, Compose project, and SQLite path are retained.
+
+## Discord quick start
+
+1. Sign in with Steam at [GOKZ.TOP](https://gokz.top/settings/binding-code) and generate a binding code.
+2. Send `/bind code:KZTOP…` to Sakiko. The code is case-sensitive and expires at the time shown on the website. The response is private.
+3. Use `/help`, `/mode`, `/profile`, `/kz`, `/pb`, `/pr`, `/wr`, `/rank`, `/daily`, `/server`, `/rate`, or `/comment`.
+
+Both platforms verify codes with `QQ_BOT_SECRET`. Discord bindings and mode preferences are stored locally under platform-qualified account IDs. This does not modify the website's Discord social links. Modes and daily map assignments are independent across platforms. Automatic voice compliments are QQ-only.
+
+## Adapter configuration
+
+Set `QQ_BOTS` and/or `DISCORD_BOTS` and optionally `BOT_PLATFORMS=qq,discord`. Omit `BOT_PLATFORMS` to enable configured accounts automatically. Discord uses native slash commands and does not require Message Content intent. Example (replace the placeholder securely):
+
+```dotenv
+BOT_PLATFORMS=qq,discord
+DISCORD_BOTS='[{"token":"REPLACE_ME","application_commands":{"*":["*"]}}]'
+```
+
+Use a guild ID instead of `"*"` in the inner list to register commands only in a test server. Configure root identities as `qq:<openid>` or `discord:<user-id>` in `SUPERUSERS`; legacy unqualified QQ IDs remain supported. Discord server settings use the guild ID. Buttons are restricted to the invoking user and expire after ten minutes or a restart. Slow commands defer their response immediately; errors and binding responses stay private.
+
+## Deployment and rollback
+
+The existing CI/CD workflow tests and publishes an immutable SHA image, takes a consistent SQLite backup, records the previous image, and waits for QQ and Discord connections on E. Configure the `DISCORD_BOTS` repository secret as a JSON array alongside the existing production secrets. The bot needs View Channel, Send Messages, Embed Links, and Attach Files where it is used.
+
+Backups live under `/opt/qqbot-saki-chan/backups/<sha>/`. To roll back, stop the bot, restore the matching backup to the existing SQLite file, select the recorded previous image, and start the same Compose service. Never remove the database volume. SQLite migrations preserve QQ bindings, preferences, daily picks, and compliment history while adding independent Discord state.
+
+Run `python -m unittest discover -s tests -p 'test*.py' -v` for regression coverage. `python healthcheck.py` succeeds only when every configured platform is connected.
+
+> 该机器人支持添加到好友列表私聊命令使用, 机器人会自动同意
 > 也可以拉到其他群里使用
 
 ### 本地开发

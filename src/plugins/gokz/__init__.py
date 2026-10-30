@@ -1,10 +1,11 @@
-from pathlib import Path
-
 import nonebot
 from nonebot import get_plugin_config
 from nonebot import logger
 from nonebot.log import default_format
 from nonebot.plugin import PluginMetadata
+
+nonebot.require("nonebot_plugin_alconna")
+nonebot.require("nonebot_plugin_localstore")
 
 from .config import Config
 from .core import command_panel  # noqa: F401 - registers the bot-connect hook
@@ -25,6 +26,7 @@ patch_qq_send_retry()
 
 create_db_and_tables()
 
-sub_plugins = nonebot.load_plugins(
-    str(Path(__file__).parent.joinpath("plugins").resolve())
-)
+unified = nonebot.load_plugin("src.plugins.gokz.plugins.unified")
+if unified is None:
+    raise RuntimeError("Unable to load the unified GOKZ command application")
+sub_plugins = {unified}

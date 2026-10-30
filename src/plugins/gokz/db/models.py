@@ -79,3 +79,10 @@ class DailyMapCache(SQLModel, table=True):
         default_factory=utcnow,
         sa_column=Column(DateTime, default=func.now(), nullable=False),
     )
+
+
+class PlatformPreference(SQLModel, table=True):
+    __tablename__ = "bot_platform_preferences"
+    account_key: str = Field(primary_key=True, max_length=128)
+    steamid: str | None = Field(default=None, max_length=32)
+    mode: str = Field(default="OVR", max_length=10)

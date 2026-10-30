@@ -33,6 +33,7 @@ class SQLiteModelsTest(unittest.TestCase):
         self.assertEqual(
             inspect(engine).get_table_names(),
             [
+                "bot_platform_preferences",
                 "qqbot_complimented_runs",
                 "qqbot_daily_map_assignments",
                 "qqbot_daily_map_cache",
@@ -64,7 +65,7 @@ class SQLiteModelsTest(unittest.TestCase):
 
     def test_existing_current_unversioned_database(self):
         engine = create_engine("sqlite://")
-        SQLModel.metadata.create_all(engine)
+        SQLModel.metadata.create_all(engine, tables=[t for t in SQLModel.metadata.sorted_tables if t.name != "bot_platform_preferences"])
         self.migration.initialize_database(engine)
         self.assert_user_schema(engine)
         self.assert_binding_insert(engine)
@@ -123,7 +124,7 @@ class SQLiteModelsTest(unittest.TestCase):
             {"qid", "name", "steamid", "mode", "created_at", "updated_at"},
         )
         with engine.connect() as connection:
-            self.assertEqual(connection.execute(text("SELECT version_num FROM alembic_version")).scalar(), "20261026_gokz_only")
+            self.assertEqual(connection.execute(text("SELECT version_num FROM alembic_version")).scalar(), "828560602427")
 
     def assert_binding_insert(self, engine):
         with Session(engine) as session:

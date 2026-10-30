@@ -5,6 +5,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env.deploy
+    healthcheck:
+      test: ["CMD", "python", "healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 120s
     volumes:
       - ${QQBOT_DATA_DIR:-/opt/qqbot-saki-chan/data}/qqbot.sqlite3:/app/data/qqbot.sqlite3
 

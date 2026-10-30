@@ -4,7 +4,7 @@ from alembic import context
 
 def include_object(obj, name, type_, reflected, compare_to):
     # This migration history owns user preferences only.
-    return type_ != "table" or name == "qqbot_users"
+    return type_ != "table" or name in {"qqbot_users", "bot_platform_preferences"}
 
 
 context.configure(

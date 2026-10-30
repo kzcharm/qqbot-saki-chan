@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import ast
 import json
-import sys
-from pathlib import Path
 from typing import Any
 
 from nonebot import get_driver, logger
 from nonebot.adapters.qq import Bot
 from nonebot.drivers import Request
-from nonebot.matcher import matchers
-from nonebot.rule import CommandRule
 
 
 PANEL_REMARK_PREFIX = "gokz-qqbot commands"
@@ -54,47 +49,6 @@ COMMAND_DESCRIPTIONS = {
 }
 
 
-def _command_names(matcher: type[Any]) -> tuple[str, ...]:
-    """Return a matcher's main command followed by its aliases."""
-    for checker in matcher.rule.checkers:
-        rule = checker.call
-        if isinstance(rule, CommandRule):
-            commands = [".".join(command) for command in rule.cmds]
-            # ``CommandRule.cmds`` stores aliases in a set-derived order.
-            # The first registered command is available from the Trie rule, so
-            # sort here for deterministic panels; primary names are promoted
-            # below using their explicit registration order when possible.
-            return tuple(sorted(commands, key=lambda name: (not name.isascii(), name)))
-    return ()
-
-
-def _primary_command(matcher: type[Any], names: tuple[str, ...]) -> str:
-    """Recover ``on_command``'s first argument from its source declaration."""
-    source = matcher._source
-    module = source and sys.modules.get(source.module_name)
-    source_file = module and getattr(module, "__file__", None)
-    if not source_file or not source:
-        return names[0]
-
-    try:
-        tree = ast.parse(Path(source_file).read_text(encoding="utf-8"), filename=source_file)
-    except OSError:
-        return names[0]
-
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign) or node.lineno != source.lineno:
-            continue
-        if not isinstance(node.value, ast.Call) or not node.value.args:
-            continue
-        if getattr(node.value.func, "id", None) != "on_command":
-            continue
-        first_arg = node.value.args[0]
-        if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
-            if first_arg.value in names:
-                return first_arg.value
-    return names[0]
-
-
 def _prioritize_commands(commands: list[tuple[str, str, bool]]) -> list[tuple[str, str, bool]]:
     featured = [item for item in commands if item[0].removeprefix("/") in PANEL_FEATURED_COMMANDS]
     return featured + [item for item in commands if item not in featured]
@@ -102,33 +56,11 @@ def _prioritize_commands(commands: list[tuple[str, str, bool]]) -> list[tuple[st
 
 def collect_commands() -> list[tuple[str, str, bool]]:
     """Collect project commands, keeping command names ahead of aliases."""
-    primary: list[tuple[str, str, bool]] = []
-    aliases: list[tuple[str, str, bool]] = []
-    seen: set[str] = set()
-
-    for priority in sorted(matchers):
-        for matcher in matchers[priority]:
-            if not matcher.module_name.startswith("src.plugins.gokz.plugins."):
-                continue
-            names = _command_names(matcher)
-            if not names:
-                continue
-
-            canonical = _primary_command(matcher, names)
-            description = COMMAND_DESCRIPTIONS.get(canonical, "执行机器人指令")
-            only_admin = bool(matcher.permission.checkers)
-            if only_admin or canonical in PANEL_EXCLUDED_COMMANDS:
-                continue
-
-            alias_names = () if canonical in PANEL_HIDDEN_ALIASES else (name for name in names if name != canonical)
-            for target, bucket in ((canonical, primary), *((name, aliases) for name in alias_names)):
-                panel_name = f"/{target}"
-                if panel_name in seen or len(panel_name) > 14:
-                    continue
-                seen.add(panel_name)
-                bucket.append((panel_name, description, only_admin))
-
-    return _prioritize_commands(primary + aliases)[:PANEL_ITEM_LIMIT]
+    from ..application.catalog import COMMANDS
+    return _prioritize_commands([
+        (f"/{spec.name}", spec.zh, False)
+        for spec in COMMANDS if not spec.admin and spec.name not in PANEL_EXCLUDED_COMMANDS
+    ])[:PANEL_ITEM_LIMIT]
 
 
 async def _request(bot: Bot, method: str, path: str, **kwargs: Any) -> Any:
@@ -210,6 +142,8 @@ async def sync_command_panels(bot: Bot) -> None:
 
 @get_driver().on_bot_connect
 async def _sync_panels_on_connect(bot: Bot) -> None:
+    if not isinstance(bot, Bot):
+        return
     try:
         await sync_command_panels(bot)
     except Exception:

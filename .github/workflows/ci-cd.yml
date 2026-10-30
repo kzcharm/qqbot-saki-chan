@@ -64,18 +64,22 @@ jobs:
         env:
           QQBOT_PROD_ENV: ${{ secrets.QQBOT_PROD_ENV }}
           QQ_BOT_SECRET: ${{ secrets.QQ_BOT_SECRET }}
+          DISCORD_BOTS: ${{ secrets.DISCORD_BOTS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
           FISH_AUDIO_REFERENCE_ID: ${{ secrets.FISH_AUDIO_REFERENCE_ID }}
         run: |
           test -n "$QQBOT_PROD_ENV"
           test -n "$QQ_BOT_SECRET"
+          test -n "$DISCORD_BOTS"
           test -n "$DEEPSEEK_API_KEY"
           test -n "$FISH_AUDIO_API_KEY"
           test -n "$FISH_AUDIO_REFERENCE_ID"
           printf '%s\n' "$QQBOT_PROD_ENV" > .env.deploy
           {
             printf 'QQ_BOT_SECRET=%s\n' "$QQ_BOT_SECRET"
+            printf "DISCORD_BOTS='%s'\n" "$DISCORD_BOTS"
+            printf 'BOT_PLATFORMS=qq,discord\n'
             printf 'DEEPSEEK_API_KEY=%s\n' "$DEEPSEEK_API_KEY"
             printf 'FISH_AUDIO_API_KEY=%s\n' "$FISH_AUDIO_API_KEY"
             printf 'FISH_AUDIO_REFERENCE_ID=%s\n' "$FISH_AUDIO_REFERENCE_ID"
@@ -84,8 +88,16 @@ jobs:
             printf 'QQBOT_DATA_DIR=/opt/qqbot-saki-chan/data\n'
           } >> .env.deploy
           mkdir -p /opt/qqbot-saki-chan/data
+      - name: Back up SQLite and previous image
+        run: |
+          mkdir -p /opt/qqbot-saki-chan/backups
+          backup_dir="/opt/qqbot-saki-chan/backups/${GITHUB_SHA}"
+          mkdir -p "$backup_dir"
+          docker inspect qqbot-saki-chan-qqbot-1 --format '{{.Config.Image}}' > "$backup_dir/previous-image.txt"
+          docker exec qqbot-saki-chan-qqbot-1 python -c "import sqlite3; src=sqlite3.connect('/app/data/qqbot.sqlite3'); dst=sqlite3.connect('/tmp/pre-upgrade.sqlite3'); src.backup(dst); dst.close(); src.close()"
+          docker cp qqbot-saki-chan-qqbot-1:/tmp/pre-upgrade.sqlite3 "$backup_dir/qqbot.sqlite3"
       - name: Deploy only this Compose project
         run: |
           docker compose -p qqbot-saki-chan -f compose.prod.yml --env-file .env.deploy pull
-          docker compose -p qqbot-saki-chan -f compose.prod.yml --env-file .env.deploy up -d --no-deps qqbot
+          docker compose -p qqbot-saki-chan -f compose.prod.yml --env-file .env.deploy up -d --no-deps --wait --wait-timeout 180 qqbot
           docker compose -p qqbot-saki-chan -f compose.prod.yml --env-file .env.deploy ps --status running qqbot
