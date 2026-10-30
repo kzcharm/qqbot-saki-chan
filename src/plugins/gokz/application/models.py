@@ -29,6 +29,10 @@ class Result:
     # Choice labels and full replacement input. Only the requesting user may execute it.
     choices: list[tuple[str, str, CommandInput]] = field(default_factory=list)
     private: bool = False
+    tone: str = "neutral"
+    category: str = ""
+    entries: list[dict[str, Any]] = field(default_factory=list)
+    footer: str = ""
     record: dict[str, Any] | None = None
 
 

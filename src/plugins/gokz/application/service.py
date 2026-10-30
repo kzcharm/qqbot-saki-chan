@@ -136,7 +136,19 @@ def record_result(
     records: list[tuple[str, dict[str, Any] | None]],
     scope: str,
 ) -> Result:
-    result = Result(title)
+    result = Result(
+        title,
+        category="records",
+        entries=[{"kind": kind, **record} for kind, record in records if record],
+    )
+    if records and any(record for _, record in records):
+        result.image = f"{BASE}/maps/images/{quote(title, safe='')}.webp"
+        result.links = [
+            (
+                text(ctx, "Map leaderboard", "地图排名"),
+                f"{website_base_url()}/maps/{quote(title, safe='')}/maptop",
+            )
+        ]
     for kind, record in records:
         if not record:
             continue
@@ -258,7 +270,28 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ),
             fields=[
                 (text(ctx, "Response time", "响应时间"), f"{status.response_ms:.0f} ms")
-            ],
+            ]
+            + (
+                [
+                    (
+                        text(ctx, "Details", "详情"),
+                        (
+                            "Request timed out after 10 seconds."
+                            if "超时" in status.error
+                            else "The API returned an invalid response."
+                            if "无效" in status.error
+                            else "Unable to connect to the API."
+                            if "网络" in status.error
+                            else status.error
+                        )
+                        if ctx.platform == "discord"
+                        else status.error,
+                    )
+                ]
+                if status.error
+                else []
+            ),
+            tone="success" if status.available else "error",
         )
     if name in {"server", "group_info", "set_server"}:
         return await servers(ctx, name, request)
@@ -438,11 +471,22 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         rows = await fetch_personal_bans(steamid)
         return Result(
             text(ctx, "Ban history", "封禁记录"),
-            "\n".join(
-                f"{r.get('ban_type', r.get('type', 'Ban'))}: {r.get('reason') or '—'}"
-                for r in rows
-            )
-            or text(ctx, "No bans found.", "未找到封禁记录。"),
+            text(ctx, "No bans found.", "未找到封禁记录。") if not rows else "",
+            fields=[
+                (
+                    str(r.get("ban_type", "other")).replace("_", " "),
+                    str(r.get("notes") or r.get("reason") or "—"),
+                )
+                for r in rows[:5]
+            ],
+            category="bans",
+            entries=rows[:5],
+            footer=text(
+                ctx,
+                f"{len(rows)} records · showing {min(5, len(rows))}",
+                f"共 {len(rows)} 条 · 显示 {min(5, len(rows))} 条",
+            ),
+            tone="success" if not rows else "error",
         )
     if name in {"rank", "pk"}:
         if request.update:

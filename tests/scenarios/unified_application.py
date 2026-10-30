@@ -157,6 +157,88 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(discord.resolve_choice("gokz:" + token, "123"))
         self.assertIn("embeds", rendered)
 
+    async def test_stale_commands_only_removed_after_global_sync(self):
+        from src.plugins.gokz.presentation.discord_commands import (
+            remove_stale_guild_commands,
+        )
+
+        legacy = SimpleNamespace(id="1", name="ban", type=1)
+        unrelated = SimpleNamespace(id="2", name="custom", type=1)
+        context_menu = SimpleNamespace(id="3", name="ban", type=3)
+        bot = SimpleNamespace(
+            application_id="app",
+            bot_info=SimpleNamespace(application_commands={"*": ["*"]}),
+            get_global_application_commands=AsyncMock(
+                return_value=[SimpleNamespace(name=s.name) for s in COMMANDS]
+            ),
+            get_current_user_guilds=AsyncMock(
+                return_value=[SimpleNamespace(id="guild")]
+            ),
+            get_guild_application_commands=AsyncMock(
+                return_value=[legacy, unrelated, context_menu]
+            ),
+            delete_guild_application_command=AsyncMock(),
+        )
+        self.assertEqual(await remove_stale_guild_commands(bot), 1)
+        bot.delete_guild_application_command.assert_awaited_once_with(
+            application_id="app", guild_id="guild", command_id="1"
+        )
+        bot.delete_guild_application_command.reset_mock()
+        bot.bot_info.application_commands = {"*": ["test-guild"]}
+        self.assertEqual(await remove_stale_guild_commands(bot), 0)
+        bot.delete_guild_application_command.assert_not_awaited()
+
+    async def test_status_colours_ban_details_and_record_images(self):
+        from src.plugins.gokz.api.global_status import GlobalAPIStatus
+
+        ctx = RequestContext("discord", "123")
+        for available, colour in ((True, 0x2ECC71), (False, 0xE74C3C)):
+            with patch.object(
+                service,
+                "check_global_api",
+                AsyncMock(return_value=GlobalAPIStatus(available, 123)),
+            ):
+                result = await service.execute(ctx, "api", CommandInput())
+                self.assertEqual(
+                    discord.render(result, "123")["embeds"][0].color, colour
+                )
+        ban = {
+            "ban_type": "bhop_hack",
+            "notes": "Repeated automated jumps",
+            "server_id": 7,
+            "created_at": "2026-01-01T00:00:00Z",
+            "expires_at": None,
+            "player": {"display_name": "Test Player"},
+        }
+        with (
+            patch.object(
+                service, "player", AsyncMock(return_value="76561197960278073")
+            ),
+            patch.object(service, "fetch_personal_bans", AsyncMock(return_value=[ban])),
+        ):
+            result = await service.execute(ctx, "ban", CommandInput())
+        embed = discord.render(result, "123")["embeds"][0]
+        self.assertIn("Bhop Hack", embed.fields[0].name)
+        self.assertIn("Repeated automated jumps", embed.fields[0].value)
+        self.assertIn("Never", embed.fields[0].value)
+        self.assertIn("<t:", embed.fields[0].value)
+        self.assertEqual(embed.color, 0xE74C3C)
+        record = {
+            "time": 61.25,
+            "teleports": 2,
+            "map_tier": 3,
+            "map_name": "bkz_cakewalk",
+            "mode": "KZT",
+            "player_name": "Test Player",
+            "created_on": "2026-01-01T00:00:00Z",
+        }
+        for kind in ("PR", "NUB", "PRO"):
+            result = service.record_result(ctx, "bkz_cakewalk", [(kind, record)], "KZT")
+            embed = discord.render(result, "123")["embeds"][0]
+            self.assertIn("/maps/images/bkz_cakewalk.webp", embed.image.url)
+            self.assertTrue(any(f.inline for f in embed.fields))
+            self.assertIn("**1:01.250**", embed.fields[0].value)
+
     async def test_public_result_survives_deferred_response_aliasing(self):
         # Discord treats the first followup after a deferred ACK as an edit
         # of @original, unless the original response was completed explicitly.
@@ -165,11 +247,16 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
 
         async def acknowledge(**kwargs):
             pending[0] = True
-            messages["original"] = {"private": True}
+            messages["original"] = {
+                "private": bool(kwargs["response"].data.flags & MessageFlag.EPHEMERAL)
+            }
 
         async def edit_original(**payload):
             pending[0] = False
-            messages["original"] = {"private": True, **payload}
+            messages["original"] = {
+                "private": messages["original"]["private"],
+                **payload,
+            }
 
         async def followup(**payload):
             key = "original" if pending[0] else "followup"
@@ -209,10 +296,13 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
         )
         await discord.defer(bot, event)
         ack = bot.create_interaction_response.call_args.kwargs["response"]
-        self.assertEqual(ack.data.flags, MessageFlag.EPHEMERAL)
+        self.assertEqual(ack.data.flags, MessageFlag(0))
         await discord.deliver(bot, event, Result("Records", "Public result"))
-        bot.create_followup_message.assert_awaited_once()
+        bot.create_followup_message.assert_not_awaited()
         bot.delete_origin_interaction_response.assert_not_awaited()
+        await discord.defer(bot, event, private=True)
+        ack = bot.create_interaction_response.call_args.kwargs["response"]
+        self.assertEqual(ack.data.flags, MessageFlag.EPHEMERAL)
         await discord.deliver(
             bot, event, Result("Binding", "Private result", private=True)
         )
@@ -265,11 +355,12 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             ) as delete,
             patch.object(
                 Bot, "edit_origin_interaction_response", AsyncMock(), create=True
-            ),
+            ) as edit,
         ):
             await handle_event(bot, event)
             ack.assert_awaited_once()
-            send.assert_awaited_once()
+            send.assert_not_awaited()
+            edit.assert_awaited_once()
             delete.assert_not_awaited()
 
     async def test_qq_event_routes_through_nonebot(self):

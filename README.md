@@ -19,7 +19,7 @@ BOT_PLATFORMS=qq,discord
 DISCORD_BOTS='[{"token":"REPLACE_ME","application_commands":{"*":["*"]}}]'
 ```
 
-Use a guild ID instead of `"*"` in the inner list to register commands only in a test server. Configure root identities as `qq:<openid>` or `discord:<user-id>` in `SUPERUSERS`; legacy unqualified QQ IDs remain supported. Discord server settings use the guild ID. Buttons are restricted to the invoking user and expire after ten minutes or a restart. Slow commands defer their response immediately; errors and binding responses stay private.
+Use a guild ID instead of `"*"` in the inner list to register commands only in a test server. Configure root identities as `qq:<openid>` or `discord:<user-id>` in `SUPERUSERS`; legacy unqualified QQ IDs remain supported. Discord server settings use the guild ID. Buttons are restricted to the invoking user and expire after ten minutes or a restart. Slow commands defer and update the original reply in place, without an extra acknowledgement message. Binding and account-connection errors stay private. `/api` uses green/red status colours; record replies include map images, compact fields, and Discord timestamps. Ban history shows readable reasons, notes, server details, and expiry. Known legacy guild commands are retired after global command sync to prevent duplicate menu entries.
 
 ## Deployment and rollback
 

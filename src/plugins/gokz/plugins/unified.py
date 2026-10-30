@@ -30,7 +30,7 @@ from ..application.catalog import COMMANDS, CommandSpec
 from ..application.commands import definition, request_from_result, discord_request
 from ..application.context import RequestContext
 from ..application.models import CommandInput, Result, UserError
-from ..application.service import execute
+from ..application.service import execute, player
 from ..presentation import discord, qq
 
 
@@ -145,7 +145,36 @@ def context(bot: Bot, event: Event) -> RequestContext:
 async def dispatch(bot: Bot, event: Event, name: str, request: CommandInput) -> None:
     ctx = context(bot, event)
     if ctx.platform == "discord":
-        await discord.defer(bot, event)
+        # Local binding checks are quick and keep account errors private before
+        # deciding the visibility of the deferred response.
+        if name not in {
+            "help",
+            "bind",
+            "api",
+            "server",
+            "group_info",
+            "set_server",
+            "find",
+            "feedback",
+            "group_rank",
+            "wr",
+            "review",
+        }:
+            try:
+                await player(
+                    ctx, request, own=name in {"rate", "comment", "pk", "mode"}
+                )
+            except UserError as exc:
+                await discord.defer(bot, event, private=True)
+                await discord.deliver(
+                    bot,
+                    event,
+                    Result("Account connection", exc.en, private=True, tone="error"),
+                )
+                return
+        await discord.defer(
+            bot, event, private=name in {"bind", "set_server", "group_rank"}
+        )
     else:
         # QQ mentions contain an open ID, never a Steam ID.
         for segment in event.get_message():
@@ -216,7 +245,7 @@ def register(spec: CommandSpec) -> None:
                 private=True,
             )
             if ctx.platform == "discord":
-                await discord.defer(bot, event)
+                await discord.defer(bot, event, private=True)
                 await discord.deliver(bot, event, result)
             else:
                 await bot.send(event, qq.render(result, ctx.account_id))
@@ -245,7 +274,7 @@ async def handle_component(bot: DiscordBot, event: MessageComponentInteractionEv
     if choice:
         await dispatch(bot, event, *choice)
     else:
-        await discord.defer(bot, event)
+        await discord.defer(bot, event, private=True)
         await discord.deliver(
             bot,
             event,
@@ -271,6 +300,13 @@ async def connected(bot: Bot) -> None:
         __import__("json").dumps(sorted(set(connected_platforms.values())))
     )
     logger.info(f"{platform} bot connected: {bot.self_id}")
+    if isinstance(bot, DiscordBot):
+        from ..presentation.discord_commands import remove_stale_guild_commands
+
+        try:
+            await remove_stale_guild_commands(bot)
+        except Exception:
+            logger.exception("Unable to clean up obsolete Discord guild commands")
 
 
 @get_driver().on_bot_disconnect
