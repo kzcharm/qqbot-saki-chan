@@ -98,11 +98,18 @@ async def deliver(bot, event, result):
             **payload,
         )
     else:
+        # Completing the private deferred response first prevents Discord from
+        # treating the first followup as an edit of @original. Deleting
+        # @original after that alias would delete the result the user just saw.
+        await bot.edit_origin_interaction_response(
+            application_id=event.application_id,
+            interaction_token=event.token,
+            content="Your result is ready below.",
+            allowed_mentions=payload["allowed_mentions"],
+        )
         await bot.create_followup_message(
             application_id=event.application_id,
             interaction_token=event.token,
+            flags=MessageFlag(0),
             **payload,
-        )
-        await bot.delete_origin_interaction_response(
-            application_id=event.application_id, interaction_token=event.token
         )

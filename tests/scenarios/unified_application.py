@@ -157,6 +157,46 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(discord.resolve_choice("gokz:" + token, "123"))
         self.assertIn("embeds", rendered)
 
+    async def test_public_result_survives_deferred_response_aliasing(self):
+        # Discord treats the first followup after a deferred ACK as an edit
+        # of @original, unless the original response was completed explicitly.
+        messages = {}
+        pending = [False]
+
+        async def acknowledge(**kwargs):
+            pending[0] = True
+            messages["original"] = {"private": True}
+
+        async def edit_original(**payload):
+            pending[0] = False
+            messages["original"] = {"private": True, **payload}
+
+        async def followup(**payload):
+            key = "original" if pending[0] else "followup"
+            messages[key] = {"private": pending[0], **payload}
+            pending[0] = False
+
+        async def delete_original(**kwargs):
+            messages.pop("original", None)
+
+        bot = SimpleNamespace(
+            create_interaction_response=AsyncMock(side_effect=acknowledge),
+            edit_origin_interaction_response=AsyncMock(side_effect=edit_original),
+            create_followup_message=AsyncMock(side_effect=followup),
+            delete_origin_interaction_response=AsyncMock(side_effect=delete_original),
+        )
+        event = SimpleNamespace(
+            id="1", token="fake", application_id="2", get_user_id=lambda: "123"
+        )
+        await discord.defer(bot, event)
+        await discord.deliver(bot, event, Result("Records", "Keep this result"))
+        public = [m for m in messages.values() if not m["private"] and m.get("embeds")]
+        self.assertEqual(
+            len(public), 1, "The deferred-response cleanup deleted the actual result"
+        )
+        self.assertEqual(public[0]["embeds"][0].title, "Records")
+        bot.delete_origin_interaction_response.assert_not_awaited()
+
     async def test_private_ack_and_public_result(self):
         bot = SimpleNamespace(
             create_interaction_response=AsyncMock(),
@@ -172,11 +212,11 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ack.data.flags, MessageFlag.EPHEMERAL)
         await discord.deliver(bot, event, Result("Records", "Public result"))
         bot.create_followup_message.assert_awaited_once()
-        bot.delete_origin_interaction_response.assert_awaited_once()
+        bot.delete_origin_interaction_response.assert_not_awaited()
         await discord.deliver(
             bot, event, Result("Binding", "Private result", private=True)
         )
-        bot.edit_origin_interaction_response.assert_awaited_once()
+        self.assertEqual(bot.edit_origin_interaction_response.await_count, 2)
 
     async def test_discord_event_routes_through_nonebot(self):
         from nonebot.adapters.discord import Adapter, Bot
@@ -222,11 +262,15 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             ) as send,
             patch.object(
                 Bot, "delete_origin_interaction_response", AsyncMock(), create=True
+            ) as delete,
+            patch.object(
+                Bot, "edit_origin_interaction_response", AsyncMock(), create=True
             ),
         ):
             await handle_event(bot, event)
             ack.assert_awaited_once()
             send.assert_awaited_once()
+            delete.assert_not_awaited()
 
     async def test_qq_event_routes_through_nonebot(self):
         from nonebot.adapters.qq import Adapter, Bot
