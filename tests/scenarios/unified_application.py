@@ -641,6 +641,19 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
                         await service.execute(ctx, "rate", request)
                 self.assertEqual(write.await_count, count)
 
+    async def test_missing_server_distribution_is_supported_on_both_platforms(self):
+        with patch.object(
+            service, "read", AsyncMock(return_value={"most_played_server": None})
+        ):
+            for platform in ("qq", "discord"):
+                result = await service.execute(
+                    RequestContext(platform, "actor"),
+                    "ccf",
+                    CommandInput(steamid="76561197960278073"),
+                )
+                self.assertEqual(result.description, "—")
+                self.assertIsNone(result.data["stats"]["most_played_server"])
+
     async def test_progress_calculations_are_shared_and_split_teleported_runs(self):
         records = [
             {"time": t, "teleports": tp, "created_on": str(i)}

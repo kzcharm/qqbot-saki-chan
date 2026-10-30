@@ -689,9 +689,9 @@ async def _execute(ctx: RequestContext, name: str, request: CommandInput) -> Res
                 "请选择 all、pb、last_year 或 last_100_hours。",
             )
         # The v1 API currently provides server playtime for all time only.
-        groups = (
-            data.get("most_played_server", {}).get("all_time", {}).get("entries", [])
-        )
+        distribution = data.get("most_played_server") or {}
+        all_time = distribution.get("all_time") or {}
+        groups = all_time.get("entries") or []
         return Result(
             text(ctx, "Most-played servers (all time)", "常玩服务器（全部）"),
             "\n".join(
