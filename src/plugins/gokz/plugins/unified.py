@@ -169,7 +169,7 @@ async def dispatch(bot: Bot, event: Event, name: str, request: CommandInput) -> 
                 await discord.deliver(
                     bot,
                     event,
-                    Result("Account connection", exc.en, private=True, tone="error"),
+                    Result("Account connection", exc.en, private=True, tone=exc.tone),
                 )
                 return
         await discord.defer(
@@ -187,9 +187,12 @@ async def dispatch(bot: Bot, event: Event, name: str, request: CommandInput) -> 
         result = await execute(ctx, name, request)
     except UserError as exc:
         result = Result(
-            "Error" if ctx.platform == "discord" else "提示",
+            ("Error" if exc.tone == "error" else "Warning")
+            if ctx.platform == "discord"
+            else "提示",
             exc.en if ctx.platform == "discord" else exc.zh,
             private=True,
+            tone=exc.tone,
         )
     except Exception:
         logger.exception(f"{ctx.platform} command {name} failed")
@@ -199,6 +202,7 @@ async def dispatch(bot: Bot, event: Event, name: str, request: CommandInput) -> 
             if ctx.platform == "discord"
             else "服务暂时不可用，请稍后重试。",
             private=True,
+            tone="error",
         )
     if ctx.platform == "discord":
         await discord.deliver(bot, event, result)
@@ -240,9 +244,10 @@ def register(spec: CommandSpec) -> None:
         except UserError as exc:
             ctx = context(bot, event)
             result = Result(
-                "Error" if ctx.platform == "discord" else "提示",
+                "Warning" if ctx.platform == "discord" else "提示",
                 exc.en if ctx.platform == "discord" else exc.zh,
                 private=True,
+                tone=exc.tone,
             )
             if ctx.platform == "discord":
                 await discord.defer(bot, event, private=True)
@@ -282,6 +287,7 @@ async def handle_component(bot: DiscordBot, event: MessageComponentInteractionEv
                 "Control expired",
                 "This control expired or belongs to another user. Run the command again.",
                 private=True,
+                tone="warning",
             ),
         )
 

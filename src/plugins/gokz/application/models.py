@@ -37,6 +37,7 @@ class Result:
 
 
 class UserError(Exception):
-    def __init__(self, en: str, zh: str):
+    def __init__(self, en: str, zh: str, *, tone: str = "warning"):
+        self.tone = tone
         self.en, self.zh = en, zh
         super().__init__(en)

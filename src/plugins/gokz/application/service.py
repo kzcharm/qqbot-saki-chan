@@ -88,9 +88,18 @@ async def player(
 async def read(path: str, **params: Any) -> Any:
     data = await fetch_json(f"{BASE}{path}", params=params or None, timeout=30)
     if data is None or isinstance(data, dict) and data.get("detail"):
+        if (
+            isinstance(data, dict)
+            and isinstance(data.get("detail"), str)
+            and "not found" in data["detail"].casefold()
+        ):
+            raise UserError(
+                "No matching player or resource was found.", "未找到对应的玩家或资源。"
+            )
         raise UserError(
             "GOKZ.TOP is temporarily unavailable. Please try again.",
             "GOKZ.TOP 暂时不可用，请稍后重试。",
+            tone="error",
         )
     return data
 
@@ -373,16 +382,24 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         )
         result.fields = [("Steam ID", steamid), (text(ctx, "Mode", "模式"), scope)]
         if name == "profile":
-            links = await read(f"/players/{steamid}/social-links")
-            for link in links if isinstance(links, list) else []:
+            optional = await asyncio.gather(
+                read(f"/player-social-links/players/{steamid}"),
+                read(f"/players/{steamid}/stats"),
+                read(f"/leaderboards/players/{steamid}", scope=scope),
+                return_exceptions=True,
+            )
+            links_data, stats, rank = [
+                value if isinstance(value, dict) else {} for value in optional
+            ]
+            for link in links_data.get("data", []):
                 if link.get("verified") and link.get("url"):
                     result.links.append(
                         (str(link.get("platform", "Profile")), link["url"])
                     )
-            stats, rank = await asyncio.gather(
-                read(f"/players/{steamid}/stats"),
-                read(f"/leaderboards/players/{steamid}", scope=scope),
-            )
+            result.category = "profile"
+            result.entries = [
+                {"player": data, "stats": stats, "rank": rank, "scope": scope}
+            ]
             add_fields(
                 result,
                 rank,
@@ -393,6 +410,13 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 ),
                 ctx,
             )
+            if any(isinstance(value, Exception) for value in optional):
+                result.tone = "warning"
+                result.footer = text(
+                    ctx,
+                    "Some profile details are temporarily unavailable.",
+                    "部分资料暂时不可用。",
+                )
         if name == "kz":
             try:
                 result.file = Path(
@@ -502,6 +526,18 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ("unique_map_finishes", "Maps finished", "完成地图数"),
         )
         add_fields(result, rank, keys, ctx)
+        if name == "rank":
+            try:
+                profile = await read(f"/players/{steamid}")
+            except UserError:
+                profile = rank.get("player") or {"steamid64": steamid}
+            result.category = "rank"
+            result.entries = [{"player": profile, "rank": rank, "scope": scope}]
+            result.links = [
+                ("GOKZ.TOP", f"{website_base_url()}/profile/{steamid}"),
+                ("Steam", f"https://steamcommunity.com/profiles/{steamid}"),
+            ]
+
         if name == "pk":
             opponent = request.arguments[0] if request.arguments else request.steamid
             if request.user:
@@ -647,7 +683,7 @@ async def servers(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         )
     if identifier and not slug:
         raise UserError("Server group not found.", "未找到服务器组。")
-    result = Result(text(ctx, "Live servers", "服务器状态"))
+    result = Result(text(ctx, "Live servers", "服务器状态"), category="servers")
     groups = {}
     for row in rows:
         group = row.get("group") or {}
@@ -657,6 +693,7 @@ async def servers(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             continue
         groups[group_slug] = group.get("name") or group_slug
         if slug == group_slug:
+            result.entries.append(row)
             roster = " · ".join(
                 str(p.get("name", "")) for p in live.get("players", [])[:15]
             )
@@ -666,7 +703,45 @@ async def servers(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                     f"{live.get('map', '—')} · {live.get('player_count', 0)}\n{roster}",
                 )
             )
+    if slug:
+        result.title = groups.get(slug, slug)
+        result.links = [
+            (
+                text(ctx, "Server group", "服务器组"),
+                f"{website_base_url()}/servers/group/{quote(slug, safe='')}",
+            )
+        ]
+        result.footer = text(
+            ctx, f"{len(result.entries)} online servers", "在线服务器状态"
+        )
+        if not result.entries:
+            result.tone = "warning"
+            result.description = text(
+                ctx, "No servers are currently online.", "当前没有在线服务器。"
+            )
     if not slug:
+        result.category = "server_groups"
+        result.entries = [
+            {
+                "slug": key,
+                "name": value,
+                "servers": sum(
+                    1
+                    for row in rows
+                    if (row.get("group") or {}).get("custom_id") == key
+                    and (row.get("live_status") or {}).get("is_online")
+                ),
+                "players": sum(
+                    int((row.get("live_status") or {}).get("player_count") or 0)
+                    for row in rows
+                    if (row.get("group") or {}).get("custom_id") == key
+                    and (row.get("live_status") or {}).get("is_online")
+                ),
+            }
+            for key, value in groups.items()
+        ]
+        if not groups:
+            result.tone = "warning"
         result.description = "\n".join(f"{v} (`{k}`)" for k, v in groups.items()) or "—"
         result.choices = [
             (v, "server", CommandInput(arguments=(k,)))

@@ -4,7 +4,7 @@ import secrets
 import time
 from datetime import datetime, timezone
 from urllib.parse import quote
-from nonebot.adapters.discord.api import EmbedFooter
+from nonebot.adapters.discord.api import EmbedFooter, EmbedAuthor, EmbedThumbnail
 
 from nonebot.adapters.discord import Message, MessageSegment
 from nonebot.adapters.discord.api import (
@@ -63,6 +63,10 @@ def render(result: Result, user_id: str):
         style_records(embed, result)
     elif result.category == "bans":
         style_bans(embed, result)
+    elif result.category in {"profile", "rank"}:
+        style_player(embed, result)
+    elif result.category in {"servers", "server_groups"}:
+        style_servers(embed, result)
     if result.file and not result.image:
         embed.image = EmbedImage(url=f"attachment://{result.file.name}")
     # Keep below Discord's 6,000-character embed budget and five component rows.
@@ -120,14 +124,16 @@ async def deliver(bot, event, result):
     )
 
 
-def timestamp(value: str | None, *, fallback: str = "Unknown") -> str:
+def timestamp(
+    value: str | None, *, fallback: str = "Unknown", relative: bool = False
+) -> str:
     if not value:
         return fallback
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return f"<t:{int(dt.timestamp())}:f>"
+        return f"<t:{int(dt.timestamp())}:{'R' if relative else 'f'}>"
     except (ValueError, TypeError):
         return fallback
 
@@ -163,7 +169,13 @@ def style_records(embed: Embed, result: Result) -> None:
             ("Teleports", str(record.get("teleports", 0))),
             ("Rating", str(record.get("rating", record.get("points", "—")))),
             ("Server", str(record.get("server_name") or "Unknown")),
-            ("Date", timestamp(record.get("created_at") or record.get("created_on"))),
+            (
+                "Date",
+                timestamp(
+                    record.get("created_at") or record.get("created_on"),
+                    relative=kind == "PR",
+                ),
+            ),
         ):
             fields.append(EmbedField(name=label, value=value[:500], inline=True))
     embed.fields = fields
@@ -225,3 +237,149 @@ def style_bans(embed: Embed, result: Result) -> None:
         embed.description = f"**{player['display_name']}**"
     embed.fields = fields
     embed.color = 0xE74C3C if active else 0xF1C40F
+
+
+def metric(value, *, decimal: bool = False) -> str:
+    if value is None:
+        return "—"
+    try:
+        return f"{float(value):,.2f}" if decimal else f"{int(value):,}"
+    except (ValueError, TypeError):
+        return "—"
+
+
+def style_player(embed: Embed, result: Result) -> None:
+    if not result.entries:
+        return
+    data = result.entries[0]
+    player = data.get("player") or {}
+    rank = data.get("rank") or {}
+    steamid = player.get("steamid64")
+    name = str(
+        player.get("alias")
+        or player.get("name")
+        or player.get("display_name")
+        or steamid
+        or "Player"
+    )
+    scope = data.get("scope", "OVR")
+    avatar = player.get("avatar_hash")
+    avatar_options = {}
+    if (
+        isinstance(avatar, str)
+        and len(avatar) == 40
+        and all(c in "0123456789abcdefABCDEF" for c in avatar)
+    ):
+        url = f"https://avatars.steamstatic.com/{avatar}_full.jpg"
+        avatar_options["icon_url"] = url
+        embed.thumbnail = EmbedThumbnail(url=url)
+    author_options = (
+        {"url": f"https://steamcommunity.com/profiles/{steamid}"} if steamid else {}
+    )
+    embed.author = EmbedAuthor(name=name[:256], **author_options, **avatar_options)
+    embed.title = (
+        "Player Profile" if result.category == "profile" else "Player Rankings"
+    )
+    if steamid:
+        embed.url = f"https://gokz.top/profile/{steamid}"
+    position = rank.get("rank")
+    position_text = f"**#{metric(position)}**" if position else "**Unranked**"
+    country = player.get("country") or rank.get("region") or ""
+    embed.description = f"**{scope}** · {position_text}" + (
+        f" · {country}" if country else ""
+    )
+    values = [
+        ("Rating", f"**{metric(rank.get('rating'), decimal=True)}**"),
+        ("Easy rating", metric(rank.get("rating_easy"), decimal=True)),
+        ("Hard rating", metric(rank.get("rating_hard"), decimal=True)),
+        (
+            "Regional rank",
+            f"#{metric(rank['rank_regional'])}"
+            if rank.get("rank_regional")
+            else "Unranked",
+        ),
+        ("Points", metric(rank.get("points"))),
+        ("Maps finished", metric(rank.get("unique_map_finishes"))),
+        ("NUB world records", metric(rank.get("wrs_nub"))),
+        ("PRO world records", metric(rank.get("wrs_pro"))),
+        ("900+ records", metric(rank.get("records_900_plus"))),
+    ]
+    if result.category == "profile":
+        seconds = (
+            ((data.get("stats") or {}).get("most_played_server") or {}).get("all_time")
+            or {}
+        ).get("total_seconds")
+        if isinstance(seconds, (float, int)):
+            values.append(("Playtime", f"{seconds / 3600:,.1f} hours"))
+        values.append(
+            (
+                "Last played",
+                timestamp(
+                    player.get("last_played_at") or player.get("last_played"),
+                    relative=True,
+                ),
+            )
+        )
+        favorite = player.get("favorite_server") or {}
+        label = favorite.get("name") or favorite.get("label")
+        if label:
+            values.append(("Favourite server", str(label)))
+    embed.fields = [EmbedField(name=k, value=v[:350], inline=True) for k, v in values]
+
+
+def style_servers(embed: Embed, result: Result) -> None:
+    if result.category == "server_groups":
+        embed.title = "Server Groups"
+        embed.description = (
+            "Choose a group below to view its live servers."
+            if result.entries
+            else "No servers are currently online."
+        )
+        embed.fields = [
+            EmbedField(
+                name=str(group["name"])[:100],
+                value=f"`{group['slug']}` · **{group['servers']}** servers · **{group['players']}** players",
+                inline=True,
+            )
+            for group in result.entries[:20]
+        ]
+        embed.footer = EmbedFooter(text=f"{len(result.entries)} online groups")
+        return
+    if not result.entries:
+        return
+    embed.color = 0x2ECC71
+    players = sum(
+        int((row.get("live_status") or {}).get("player_count") or 0)
+        for row in result.entries
+    )
+    embed.description = (
+        f"**{len(result.entries)}** online servers · **{players}** players"
+    )
+    fields = []
+    for row in result.entries[:8]:
+        live = row.get("live_status") or {}
+        map_name = str(live.get("map") or "Unknown map")
+        map_url = f"https://gokz.top/maps/{quote(map_name, safe='')}/maptop"
+        tier = f" · **T{row['map_tier']}**" if row.get("map_tier") is not None else ""
+        count = f"{live.get('player_count', 0)}/{live.get('max_players', 0)}"
+        roster = " · ".join(
+            str(p.get("name", "")).replace("`", "")[:24]
+            for p in (live.get("players") or [])[:8]
+        )
+        address = f"{row.get('ip', '')}:{row.get('port', '')}"
+        value = f"**Map:** [{map_name}]({map_url}){tier}\n**Players:** {count} · **Region:** {row.get('region') or '—'}"
+        if roster:
+            value += f"\n`{roster}`"
+        if row.get("ip") and row.get("port"):
+            value += f"\n```\nconnect {address}\n```"
+        fields.append(
+            EmbedField(
+                name=str(live.get("hostname") or address)[:100],
+                value=value[:500],
+                inline=False,
+            )
+        )
+    embed.fields = fields
+    embed.footer = EmbedFooter(
+        text=f"Showing {len(fields)} of {len(result.entries)} online servers · full list via Server group"
+    )

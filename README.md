@@ -103,3 +103,7 @@ nb run --reload
 机器人仅支持 GOKZ，默认模式为 OVR、KZT、SKZ 或 VNL。使用 `/mode <mode>` 切换模式。
 
 启动时会自动执行 Alembic SQLite 迁移，保留 Steam 绑定、GOKZ 默认模式和时间戳，并移除旧的游戏选择设置。升级前请停止机器人并备份 `data/qqbot.sqlite3`；数据库升级失败时启动会中止，事务会回滚。不要同时运行多个机器人实例升级同一个数据库。
+
+### Discord profile, rank, and server layouts
+
+Profile and rank embeds show Steam identity/avatar, compact rating and ranking fields, public links, and profile activity. Profile enrichment uses `/player-social-links/players/{steamid64}` and tolerates optional-section failures. Server embeds show live maps, player slots/rosters, and copyable connection commands, with a link to the complete group list. Warnings are amber, operational errors are red, and `/pr` uses relative Discord timestamps.

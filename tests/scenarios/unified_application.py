@@ -157,6 +157,108 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(discord.resolve_choice("gokz:" + token, "123"))
         self.assertIn("embeds", rendered)
 
+    async def test_profile_uses_public_social_link_endpoint(self):
+        steam = "76561197960278073"
+
+        async def api(path, **kwargs):
+            routes = {
+                f"/players/{steam}": {"steamid64": steam, "name": "Test Player"},
+                f"/player-social-links/players/{steam}": {
+                    "data": [
+                        {
+                            "platform": "youtube",
+                            "verified": True,
+                            "url": "https://youtube.com/@test",
+                        }
+                    ]
+                },
+                f"/players/{steam}/stats": {},
+                f"/leaderboards/players/{steam}": {"rank": 3, "rating": 100},
+            }
+            if path not in routes:
+                raise UserError(
+                    "GOKZ.TOP is temporarily unavailable. Please try again.", "API错误"
+                )
+            return routes[path]
+
+        with patch.object(service, "read", side_effect=api):
+            result = await service.execute(
+                RequestContext("discord", "a"), "profile", CommandInput(steamid=steam)
+            )
+        self.assertIn(("youtube", "https://youtube.com/@test"), result.links)
+        self.assertEqual(result.title, "Test Player")
+
+    async def test_profile_survives_optional_section_failure(self):
+        steam = "76561197960278073"
+
+        async def api(path, **kwargs):
+            if path == f"/players/{steam}":
+                return {"steamid64": steam, "name": "Test Player"}
+            raise UserError("Unavailable", "不可用", tone="error")
+
+        with patch.object(service, "read", side_effect=api):
+            result = await service.execute(
+                RequestContext("discord", "a"), "profile", CommandInput(steamid=steam)
+            )
+        self.assertEqual(result.title, "Test Player")
+        self.assertEqual(result.tone, "warning")
+        self.assertEqual(discord.render(result, "a")["embeds"][0].color, 0xF1C40F)
+
+    def test_player_server_layouts_and_relative_pr_dates(self):
+        profile = {
+            "steamid64": "76561197960278073",
+            "name": "Test Player",
+            "avatar_hash": "a" * 40,
+            "last_played_at": "2026-01-01T00:00:00Z",
+        }
+        rank = {
+            "rank": 12,
+            "rating": 1234.56,
+            "rating_easy": 1200,
+            "rating_hard": 1300,
+            "points": 4000,
+            "unique_map_finishes": 42,
+        }
+        result = Result(
+            "Test Player",
+            category="rank",
+            entries=[{"player": profile, "rank": rank, "scope": "OVR"}],
+        )
+        embed = discord.render(result, "a")["embeds"][0]
+        self.assertEqual(embed.author.name, "Test Player")
+        self.assertIn("avatars.steamstatic.com", embed.thumbnail.url)
+        self.assertIn("#12", embed.description)
+        self.assertIn("1,234.56", embed.fields[0].value)
+        server = {
+            "ip": "127.0.0.1",
+            "port": 27015,
+            "region": "DE",
+            "map_tier": 3,
+            "live_status": {
+                "hostname": "Test Server",
+                "map": "bkz_cakewalk",
+                "player_count": 2,
+                "max_players": 16,
+                "players": [{"name": "Player"}],
+            },
+        }
+        embed = discord.render(
+            Result("Servers", category="servers", entries=[server]), "a"
+        )["embeds"][0]
+        self.assertIn("connect 127.0.0.1:27015", embed.fields[0].value)
+        self.assertIn("2/16", embed.fields[0].value)
+        record = {"kind": "PR", "time": 60, "created_on": "2026-01-01T00:00:00Z"}
+        embed = discord.render(
+            Result("Map", category="records", entries=[record]), "a"
+        )["embeds"][0]
+        self.assertTrue(
+            next(f.value for f in embed.fields if f.name == "Date").endswith(":R>")
+        )
+        self.assertNotEqual(
+            discord.render(Result("Warning", tone="warning"), "a")["embeds"][0].color,
+            discord.render(Result("Error", tone="error"), "a")["embeds"][0].color,
+        )
+
     async def test_stale_commands_only_removed_after_global_sync(self):
         from src.plugins.gokz.presentation.discord_commands import (
             remove_stale_guild_commands,
