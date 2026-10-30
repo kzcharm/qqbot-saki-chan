@@ -1,33 +1,35 @@
 """Transport entrypoints for the shared GOKZ application."""
 
-from healthcheck import HEALTH_PATH
 from arclet.alconna import Arparma
+from healthcheck import HEALTH_PATH
 from nonebot import get_driver, logger, on_notice
 from nonebot.adapters import Bot, Event
 from nonebot.adapters.discord import Bot as DiscordBot
 from nonebot.adapters.discord.api import (
-    StringOption,
-    IntegerOption,
+    ApplicationCommandType,
     BooleanOption,
+    IntegerOption,
+    StringOption,
     UserOption,
 )
 from nonebot.adapters.discord.commands.matcher import ApplicationCommandConfig
 from nonebot.adapters.discord.commands.storage import _application_command_storage
-from nonebot.adapters.discord.api import ApplicationCommandType
 from nonebot.adapters.discord.event import (
     ApplicationCommandInteractionEvent,
     MessageComponentInteractionEvent,
 )
-from nonebot_plugin_alconna import on_alconna, UniMessage
-from nonebot_plugin_alconna.params import AlconnaMatches
+from nonebot.adapters.qq import Bot as QQBot
+from nonebot_plugin_alconna import UniMessage, on_alconna
 from nonebot_plugin_alconna.builtins.extensions.discord import DiscordSlashExtension
+from nonebot_plugin_alconna.params import AlconnaMatches
 
+from ..application import service
 from ..application.catalog import COMMANDS, CommandSpec
-from ..application.commands import definition, request_from_result, discord_request
+from ..application.commands import definition, discord_request, request_from_result
 from ..application.context import RequestContext
 from ..application.models import CommandInput, Result, UserError
-from ..application.service import execute, player
-from ..presentation import discord
+from ..presentation import discord, qq
+from ..presentation.qq_bridge import CUSTOM_VIEWS
 
 
 class GokzSlashExtension(DiscordSlashExtension):
@@ -139,9 +141,16 @@ def context(bot: Bot, event: Event) -> RequestContext:
 
 
 async def dispatch(
-    bot: DiscordBot, event: Event, name: str, request: CommandInput
+    bot: Bot, event: Event, name: str, request: CommandInput
 ) -> None:
     ctx = context(bot, event)
+    if ctx.platform == "qq":
+        try:
+            result = await service.execute(ctx, name, request)
+        except UserError as exc:
+            result = Result("提示", exc.zh, tone=exc.tone)
+        await bot.send(event, qq.render(result, ctx.account_id))
+        return
     if name not in {
         "help",
         "bind",
@@ -156,7 +165,7 @@ async def dispatch(
         "review",
     }:
         try:
-            await player(ctx, request, own=name in {"rate", "comment", "pk", "mode"})
+            await service.player(ctx, request, own=name in {"rate", "comment", "pk", "mode"})
         except UserError as exc:
             await discord.defer(bot, event, private=True)
             await discord.deliver(
@@ -169,7 +178,7 @@ async def dispatch(
         bot, event, private=name in {"bind", "set_server", "group_rank"}
     )
     try:
-        result = await execute(ctx, name, request)
+        result = await service.execute(ctx, name, request)
     except UserError as exc:
         result = Result(
             "Error" if exc.tone == "error" else "Warning",
@@ -191,12 +200,12 @@ async def dispatch(
 def register(spec: CommandSpec) -> None:
     matcher = on_alconna(
         definition(spec),
-        rule=lambda bot: isinstance(bot, DiscordBot),
+        rule=lambda bot: isinstance(bot, DiscordBot) or (isinstance(bot, QQBot) and spec.name not in CUSTOM_VIEWS),
         aliases=set(spec.aliases),
         extensions=[GokzSlashExtension(spec)],
         auto_send_output=False,
         block=True,
-        priority=5,
+        priority=5 if spec.name in CUSTOM_VIEWS else 0,
     )
 
     @matcher.handle()

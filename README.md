@@ -1,6 +1,14 @@
 # GOKZ Bot — QQ and Discord
 
-One NoneBot application runs the official QQ and Discord adapters. Discord uses Alconna commands and structured services with English embeds/buttons. QQ retains its original Chinese response handlers, help image, Markdown, keyboards, aliases, and button actions. The adapters share the existing API and persistence infrastructure; Discord presentation changes do not alter QQ output. The existing repository, image, Compose project, and SQLite path are retained.
+One NoneBot application runs the official QQ and Discord adapters. Both call `application.service.execute` for feature queries, calculations, validation, and writes. QQ's existing handlers are presentation and input-compatibility layers: they retain the original help image, Chinese Markdown, keyboards, aliases, and button actions. Discord presents the same feature results as English embeds/buttons. The existing repository, image, Compose project, and SQLite path are retained.
+
+## Adding a feature once
+
+1. Add its command metadata to `application/catalog.py` and implement its behavior in `application/service.py`.
+2. Return a `Result` with structured `data` plus localized default fields. Both adapters use this feature implementation automatically; a new command has a default QQ Markdown/keyboard view and a Discord slash command.
+3. Add a custom renderer only when the platform needs a bespoke layout. Existing QQ views in `plugins/general.py`, `gokz_top.py`, `kzglobal.py`, and `perfectworld.py` consume shared results through `presentation/qq_bridge.py`; they must not query APIs or mutate feature state. QQ-only help assets, rendering diagnostics, and automatic voice replies remain presentation concerns.
+
+Tests compare complete QQ message payloads with pre-refactor snapshots, freeze the original formatting/keyboard helpers, exercise the shared feature rules through both adapters, and verify that a new catalog command needs no separate QQ handler.
 
 ## Discord quick start
 

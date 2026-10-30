@@ -5,24 +5,23 @@ from __future__ import annotations
 import asyncio
 import os
 from dataclasses import replace
-from typing import Any
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 import httpx
-from sqlmodel import Session, select, col
+import nonebot_plugin_localstore as store
+from sqlmodel import Session, col, select
 
-from .catalog import COMMANDS
-from .context import RequestContext
-from .models import CommandInput, Result, UserError
+from ..api.global_status import check_global_api
 from ..api.gokz_top import (
+    GOKZTopAPIError,
+    fetch_personal_bans,
     fetch_personal_best,
     fetch_personal_recent,
-    fetch_world_record,
-    fetch_personal_bans,
     fetch_run_history,
+    fetch_world_record,
 )
-from ..api.global_status import check_global_api
 from ..api.helper import fetch_json, put_json
 from ..config import QQ_BOT_SECRET
 from ..core.binding_code import verify_binding_code
@@ -33,7 +32,11 @@ from ..core.map_lookup import resolve_map_name
 from ..core.server_status import resolve_server_group_slug
 from ..core.steam_user import convert_steamid
 from ..db.db import engine
-from ..db.models import User, PlatformPreference, GroupServerSetting
+from ..db.models import GroupServerSetting, PlatformPreference, User
+from .catalog import COMMANDS
+from .context import RequestContext
+from .links import FEEDBACK_GROUP_URL
+from .models import CommandInput, Result, UserError
 
 BASE = os.getenv("GOKZ_TOP_API_URL", "https://api.gokz.top/v1").rstrip("/")
 
@@ -109,7 +112,11 @@ async def map_result(
 ) -> str | Result:
     if not request.arguments:
         raise UserError("Please provide a map name.", "请输入地图名。")
-    await get_maps(request.mode or "KZT")
+    try:
+        await get_maps(request.mode or "KZT")
+    except Exception:
+        # Continue with the persisted/bundled catalog if refresh fails.
+        pass
     map_name, choices = resolve_map_name(request.arguments[0])
     if choices:
         return Result(
@@ -147,6 +154,7 @@ def record_result(
 ) -> Result:
     result = Result(
         title,
+        data={"records": dict(records), "map_name": title, "scope": scope},
         category="records",
         entries=[{"kind": kind, **record} for kind, record in records if record],
     )
@@ -180,6 +188,18 @@ def record_result(
 
 
 async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Result:
+    """The single feature entrypoint used by both adapter integrations."""
+    try:
+        return await _execute(ctx, name, request)
+    except GOKZTopAPIError as exc:
+        raise UserError(
+            "GOKZ.TOP is temporarily unavailable. Please try again.",
+            "GOKZ.TOP API服务暂时不可用，请稍后再试。",
+            tone="error",
+        ) from exc
+
+
+async def _execute(ctx: RequestContext, name: str, request: CommandInput) -> Result:
     if name in {"set_server", "group_rank"} and not ctx.is_admin:
         raise UserError(
             "This command is restricted to bot administrators.",
@@ -201,7 +221,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 ("GOKZ.TOP", website_base_url()),
                 (
                     text(ctx, "Support group", "反馈群"),
-                    "https://qm.qq.com/q/c8P0TtgpIA",
+                    FEEDBACK_GROUP_URL,
                 ),
             ],
         )
@@ -225,7 +245,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         if not QQ_BOT_SECRET:
             raise UserError(
                 "Binding is not configured. Contact the bot administrator.",
-                "绑定功能未配置，请联系管理员。",
+                "绑定码功能未配置，请联系管理员",
             )
         try:
             steamid = verify_binding_code(request.arguments[0], QQ_BOT_SECRET)[
@@ -233,9 +253,14 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ]
         except ValueError:
             raise UserError(
-                "Invalid or expired binding code.", "绑定码无效或已过期，请重新生成。"
+                "Invalid or expired binding code.", "绑定码无效或已过期，请重新生成"
             )
         data = await read(f"/players/{steamid}")
+        if not isinstance(data, dict) or not data.get("name"):
+            raise UserError(
+                "No GOKZ player was found for this account. Complete a GOKZ map first.",
+                "用户不存在. 你至少上传过一次GOKZ记录吗?\n(最近才入坑的玩家绑不上是正常的)",
+            )
         with Session(engine) as session:
             if ctx.platform == "discord":
                 # Transfer only within Discord; QQ bindings are independent.
@@ -267,6 +292,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             text(ctx, "Account connected", "绑定成功"),
             f"{data.get('name') or steamid}\n{steamid}",
             private=True,
+            data={"name": data.get("name") or steamid, "steamid": steamid},
         )
     if name == "api":
         status = await check_global_api()
@@ -301,6 +327,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 else []
             ),
             tone="success" if status.available else "error",
+            data={"status": status},
         )
     if name in {"server", "group_info", "set_server"}:
         return await servers(ctx, name, request)
@@ -316,6 +343,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 for p in data.get("data", [])
             )
             or text(ctx, "No players found.", "未找到玩家。"),
+            data={"players": data.get("data", [])},
         )
     if name == "group_rank":
         with Session(engine) as session:
@@ -346,12 +374,11 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         try:
             scope = preference(ctx, chosen)
         except ValueError:
-            raise UserError(
-                "Choose OVR, KZT, SKZ, or VNL.", "请选择 OVR、KZT、SKZ 或 VNL。"
-            )
+            raise UserError("Choose OVR, KZT, SKZ, or VNL.", "模式格式不正确")
         return Result(
             text(ctx, "Default mode", "默认模式"),
             scope,
+            data={"scope": scope},
             choices=[
                 (m, "mode", CommandInput(arguments=(m,)))
                 for m in ("OVR", "KZT", "SKZ", "VNL")
@@ -371,7 +398,25 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         else await player(ctx, request, own=name in {"rate", "comment", "pk"})
     )
     if name in {"info", "profile", "kz"}:
+        if name == "info":
+            with Session(engine) as session:
+                account = (
+                    session.get(User, request.user or ctx.account_id)
+                    if ctx.platform == "qq"
+                    else None
+                )
+                account_name = account.name if account else steamid
+            return Result(
+                text(ctx, "Linked account", "绑定信息"),
+                fields=[("Steam ID", steamid), (text(ctx, "Mode", "模式"), scope)],
+                data={"account_name": account_name, "steamid": steamid, "scope": scope},
+            )
         data = await read(f"/players/{steamid}")
+        if not isinstance(data, dict) or not data.get("steamid64"):
+            raise UserError(
+                "No GOKZ player profile was found.",
+                "未找到 GOKZ.TOP 玩家资料，或 API 暂时不可用，请稍后再试。",
+            )
         title = data.get("alias") or data.get("name") or steamid
         result = Result(
             title,
@@ -381,16 +426,35 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ],
         )
         result.fields = [("Steam ID", steamid), (text(ctx, "Mode", "模式"), scope)]
+        result.data = {"player": data, "steamid": steamid, "scope": scope}
         if name == "profile":
             optional = await asyncio.gather(
                 read(f"/player-social-links/players/{steamid}"),
                 read(f"/players/{steamid}/stats"),
                 read(f"/leaderboards/players/{steamid}", scope=scope),
+                read(
+                    f"/players/{steamid}/jumpstats",
+                    type="LJ",
+                    limit=1,
+                    sort_by="distance",
+                    sort_order="desc",
+                ),
+                read(f"/players/{steamid}/tournament-achievements"),
                 return_exceptions=True,
             )
-            links_data, stats, rank = [
+            links_data, stats, rank, jumpstats, achievements = [
                 value if isinstance(value, dict) else {} for value in optional
             ]
+            for collection in (links_data, jumpstats, achievements):
+                if not isinstance(collection.get("data"), list):
+                    collection["data"] = []
+            result.data.update(
+                links=links_data.get("data", []),
+                stats=stats,
+                rank=rank,
+                jumpstats=jumpstats,
+                achievements=achievements,
+            )
             for link in links_data.get("data", []):
                 if link.get("verified") and link.get("url"):
                     result.links.append(
@@ -423,7 +487,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                     await player_card_screenshot_async(
                         steamid,
                         scope,
-                        Path("data/cache/player_cards"),
+                        store.get_cache_dir("player_cards"),
                         request.update,
                         ctx.locale,
                     )
@@ -431,7 +495,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             except Exception as exc:
                 raise UserError(
                     f"Card generation failed. View your profile: {website_base_url()}/profile/{steamid}",
-                    f"卡片生成失败，请查看资料：{website_base_url()}/profile/{steamid}",
+                    f"玩家卡片生成失败，可直接查看资料：\n{website_base_url()}/profile/{steamid}",
                 ) from exc
         return result
     if name in {"pb", "wr", "mp", "review", "rate", "comment"}:
@@ -439,10 +503,6 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         if isinstance(selected, Result):
             return selected
         map_name = selected
-        maps = await read("/maps", name=map_name, limit=10)
-        map_data = next((m for m in maps if m["name"] == map_name), None)
-        if map_data is None:
-            raise UserError("Map not found.", "未找到地图。")
         if name in {"pb", "wr"}:
             records = await asyncio.gather(
                 *(
@@ -463,22 +523,47 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ]
             result.image = f"{BASE}/maps/images/{quote(map_name)}.webp"
             return result
+        maps = await read("/maps", name=map_name, limit=10)
+        map_data = next((m for m in maps if m["name"] == map_name), None)
+        if map_data is None:
+            raise UserError("Map not found.", "未找到地图。")
         if name == "mp":
             histories = await asyncio.gather(
                 *(
                     fetch_run_history(steamid, map_data["id"], scope, t)
                     for t in ("NUB", "PRO")
-                )
+                ),
+                return_exceptions=True,
             )
-            result = Result(map_name)
+            if all(isinstance(h, Exception) for h in histories):
+                raise UserError(
+                    "Run history is unavailable.",
+                    "GOKZ.TOP API服务暂时不可用，请稍后再试。",
+                    tone="error",
+                )
+            progress = {}
+            result = Result(
+                map_name,
+                data={"map_name": map_name, "scope": scope, "steamid": steamid},
+            )
             for kind, history in zip(("NUB", "PRO"), histories):
-                best = float("inf")
-                entries = []
-                for r in sorted(history.get("data", []), key=lambda r: r["created_on"]):
-                    if float(r["time"]) < best:
-                        best = float(r["time"])
-                        entries.append(f"{best:.3f}s · {r['created_on']}")
-                result.fields.append((kind, "\n".join(entries[-10:]) or "—"))
+                records = history.get("data", []) if isinstance(history, dict) else []
+                records = [
+                    r for r in records if (r.get("teleports", 0) > 0) == (kind == "NUB")
+                ]
+                bests = personal_bests(records)
+                progress[kind] = bests
+                result.fields.append(
+                    (
+                        kind,
+                        "\n".join(
+                            f"{r['time']:.3f}s · {r['created_on']}"
+                            for r, _ in reversed(bests[:10])
+                        )
+                        or "—",
+                    )
+                )
+            result.data["progress"] = progress
             return result
         return await reviews(ctx, name, request, map_data, steamid)
     if name == "pr":
@@ -505,6 +590,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             ],
             category="bans",
             entries=rows[:5],
+            data={"bans": rows, "steamid": steamid},
             footer=text(
                 ctx,
                 f"{len(rows)} records · showing {min(5, len(rows))}",
@@ -531,6 +617,12 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 profile = await read(f"/players/{steamid}")
             except UserError:
                 profile = rank.get("player") or {"steamid64": steamid}
+            result.data = {
+                "player": profile,
+                "rank": rank,
+                "scope": scope,
+                "steamid": steamid,
+            }
             result.category = "rank"
             result.entries = [{"player": profile, "rank": rank, "scope": scope}]
             result.links = [
@@ -566,6 +658,7 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         return Result(
             text(ctx, "Daily maps", "每日地图"),
             str(utc_today()),
+            data={"assignments": assignments, "date": utc_today()},
             fields=[
                 (
                     text(ctx, en, zh),
@@ -606,25 +699,23 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 for g in groups[:10]
             )
             or "—",
+            data={
+                "stats": data,
+                "preset": {
+                    "top": "pb",
+                    "year": "last_year",
+                    "100h": "last_100_hours",
+                }.get(period, period),
+            },
         )
     if name == "pw":
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                "https://api.wmpvp.com/api/v2/csgo/pvpDetailDataStats",
-                json={
-                    "steamId64": steamid,
-                    "csgoSeasonId": (request.arguments or ("S20",))[0],
-                },
-                headers={"User-Agent": "okhttp/4.11.0"},
-            )
-            response.raise_for_status()
-            body = response.json()
-        data = body.get("data")
-        if not isinstance(data, dict):
-            raise UserError(
-                "Perfect World statistics are unavailable.", "完美平台数据暂时不可用。"
-            )
-        result = Result("Perfect World", str(data.get("name", "")))
+        data = await perfect_world(steamid, (request.arguments or ("S20",))[0])
+        summary = perfect_world_summary(data)
+        result = Result(
+            "Perfect World",
+            str(data.get("name", "")),
+            data={"stats": data, "summary": summary},
+        )
         add_fields(
             result,
             data,
@@ -636,6 +727,16 @@ async def execute(ctx: RequestContext, name: str, request: CommandInput) -> Resu
                 ("winRate", "Win rate", "胜率"),
             ),
             ctx,
+        )
+        result.fields.extend(
+            [
+                (text(ctx, "Rank", "段位"), summary["rank"]),
+                (text(ctx, "Matches", "总场次"), str(summary["match_count"])),
+                (
+                    text(ctx, "Recent 5 rating", "最近5场Rating"),
+                    f"{summary['ratings_avg']:.2f}",
+                ),
+            ]
         )
         return result
     raise UserError("Unknown command.", "未知指令。")
@@ -654,10 +755,13 @@ async def servers(ctx: RequestContext, name: str, request: CommandInput) -> Resu
         return Result(
             text(ctx, "Conversation settings", "群组设置"),
             f"{ctx.conversation_id or '—'}\n{default or '—'}",
+            data={"conversation_id": ctx.conversation_id, "default": default},
         )
     identifier = " ".join(request.arguments).strip() or default
     if name == "set_server":
-        if not ctx.conversation_id or not request.arguments:
+        if not request.arguments or (
+            not ctx.conversation_id and len(request.arguments) != 2
+        ):
             raise UserError(
                 "Use /set_server group in a server.",
                 "请在群聊中使用 /set_server 服务器组。",
@@ -679,11 +783,18 @@ async def servers(ctx: RequestContext, name: str, request: CommandInput) -> Resu
             session.add(setting)
             session.commit()
         return Result(
-            text(ctx, "Default server group updated", "默认服务器组已更新"), slug
+            text(ctx, "Default server group updated", "默认服务器组已更新"),
+            slug,
+            data={"conversation_id": key.removeprefix("discord:"), "default": slug},
         )
+
+    result = Result(
+        text(ctx, "Live servers", "服务器状态"),
+        category="servers",
+        data={"servers": rows, "identifier": identifier, "slug": slug},
+    )
     if identifier and not slug:
-        raise UserError("Server group not found.", "未找到服务器组。")
-    result = Result(text(ctx, "Live servers", "服务器状态"), category="servers")
+        result.tone = "warning"
     groups = {}
     for row in rows:
         group = row.get("group") or {}
@@ -762,12 +873,35 @@ async def reviews(
     rows = await read(
         "/maps/reviews",
         map_id=map_id,
-        limit=10,
-        **({"steamid64": steamid} if name == "comment" else {}),
+        limit=100,
+        **({"steamid64": steamid} if name in {"comment", "rate"} else {}),
     )
     if name == "review":
-        result = Result(map_name)
-        for r in rows.get("data", [])[:5]:
+        ratings = [r.get("content") or {} for r in rows.get("data", [])]
+        summary = {}
+        for aspect in ("overall", "visuals", "gameplay"):
+            values = [r[aspect] for r in ratings if r.get(aspect) is not None]
+            summary[aspect] = (
+                (sum(values) / len(values), len(values)) if values else (0, 0)
+            )
+        comments = await read(
+            "/maps/reviews",
+            map_id=map_id,
+            offset=0,
+            limit=100,
+            with_comments_only="true",
+        )
+        result = Result(
+            map_name,
+            data={
+                "map": map_data,
+                "ratings": ratings,
+                "summary": summary,
+                "comments": comments,
+                "comment_count": sum(bool(r.get("comment")) for r in ratings),
+            },
+        )
+        for r in comments.get("data", [])[:5]:
             content = r.get("content") or {}
             comment = content.get("comment") or {}
             result.fields.append(
@@ -791,6 +925,12 @@ async def reviews(
         if stars is None:
             return Result(
                 map_name,
+                data={
+                    "map_name": map_name,
+                    "current_rating": next(iter(rows.get("data", [])), {})
+                    .get("content", {})
+                    .get("overall"),
+                },
                 choices=[
                     (f"{n} ★", "rate", replace(request, overall=n)) for n in range(1, 6)
                 ],
@@ -812,11 +952,18 @@ async def reviews(
                 "Rate this map with /rate before adding a comment.",
                 "请先使用 /rate 评分，再添加评论。",
             )
-        content = {k: existing.get(k) for k in ("overall", "gameplay", "visuals")}
+        content = dict(existing)
         comment = request.comment or " ".join(request.arguments[1:])
         if not comment:
             raise UserError("Please provide a comment.", "请输入评论。")
-        content["comment"] = {"text": comment}
+        content["comment"] = {
+            **(
+                existing.get("comment")
+                if isinstance(existing.get("comment"), dict)
+                else {}
+            ),
+            "text": comment,
+        }
     if any(
         not isinstance(v, int) or not 1 <= v <= 5
         for k, v in content.items()
@@ -838,4 +985,68 @@ async def reviews(
             "Unable to save your review. Check that you have completed this map.",
             "无法保存评价，请确认已完成该地图。",
         )
-    return Result(text(ctx, "Review saved", "评价已保存"), map_name)
+    return Result(
+        text(ctx, "Review saved", "评价已保存"),
+        map_name,
+        data={"map_name": map_name, "content": content, "saved": True},
+    )
+
+
+def personal_bests(records: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int]]:
+    """Newest PB first, retaining completions between improvements."""
+    bests = []
+    completions = 0
+    best = None
+    for record in sorted(records, key=lambda r: r["created_on"]):
+        if best is None or record["time"] < best:
+            bests.append((record, completions))
+            best = record["time"]
+            completions = 0
+        else:
+            completions += 1
+    return list(reversed(bests))
+
+
+async def perfect_world(steamid: str, season: str) -> dict[str, Any]:
+    season = season.upper() if season.upper().startswith("S") else "S20"
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.wmpvp.com/api/v2/csgo/pvpDetailDataStats",
+            json={"steamId64": steamid, "csgoSeasonId": season},
+            headers={
+                "User-Agent": "okhttp/4.11.0",
+                "t": str(int(__import__("time").time())),
+            },
+        )
+        response.raise_for_status()
+        body = response.json()
+    data = body.get("data")
+    if body.get("statusCode", 0) != 0 or not isinstance(data, dict):
+        raise UserError(
+            "Perfect World statistics are unavailable.",
+            "获取数据失败，请检查SteamID是否正确",
+        )
+    return data
+
+
+def perfect_world_summary(data: dict[str, Any]) -> dict[str, Any]:
+    history = data.get("historyPwRatings", [])
+    ratings = history[:5]
+    score = data.get("pvpScore", 0)
+    bands = (
+        (1000, "D"),
+        (1200, "D+"),
+        (1400, "C"),
+        (1600, "C+"),
+        (1800, "B"),
+        (2000, "B+"),
+        (2200, "A"),
+        (2400, "A+"),
+    )
+    return {
+        "score": score,
+        "ratings": ratings,
+        "match_count": len(history),
+        "rank": next((label for maximum, label in bands if score <= maximum), "S"),
+        "ratings_avg": sum(ratings) / len(ratings) if ratings else 0,
+    }

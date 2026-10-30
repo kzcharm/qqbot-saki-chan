@@ -2,43 +2,36 @@ import asyncio
 import math
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
 from textwrap import dedent
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from nonebot import get_driver, logger
-from ..presentation.qq_legacy import on_command
 from nonebot.adapters.qq import Bot, Event, Message, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
+from nonebot.exception import FinishedException
 from nonebot.params import CommandArg
-
-from ..api.gokz_top import (
-    GOKZTopAPIError,
-    fetch_personal_bans,
-    fetch_personal_best,
-    fetch_personal_recent,
-    fetch_world_record,
-)
-from ..api.helper import fetch_json, put_json, post_json
 from src.plugins.gokz.core.command_helper import CommandData
 from src.plugins.gokz.core.config import MAP_TIERS
 from src.plugins.gokz.core.formatter import format_gruntime, record_format_time
+from src.plugins.gokz.core.keyboard import KeyboardBuilder
 from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.kz.player_card import player_card_screenshot_async
-import nonebot_plugin_localstore as store
 from src.plugins.gokz.core.map_selection import (
     map_command,
-    map_selection_message,
-    resolve_map_name,
 )
-from src.plugins.gokz.core.daily_map import get_maps
-from src.plugins.gokz.core.keyboard import KeyboardBuilder
-from src.plugins.gokz.core.rate_message import rate_selection_message
 from src.plugins.gokz.core.pr_compliment import (
     is_notable_run,
     maybe_send_pr_compliment,
 )
-from ..config import GOKZ_TOP_API_KEY, QQ_BOT_SECRET, environment
+from src.plugins.gokz.core.rate_message import rate_selection_message
+
+from ..api.gokz_top import (
+    GOKZTopAPIError,
+)
+from ..application.models import CommandInput
+from ..config import environment
+from ..presentation.qq_bridge import command_input, query
+from ..presentation.qq_legacy import on_command
 
 pb = on_command('pb', aliases={'personal-best'})
 pr = on_command('pr')
@@ -57,16 +50,6 @@ DEFAULT_MAP = 'bkz_cakewalk'
 GOKZ_TOP_V1 = "https://api.gokz.top/v1"
 GOKZ_TOP_UNAVAILABLE = "GOKZ.TOP API服务暂时不可用，请稍后再试。"
 PR_IMAGE_BASE_URL = "https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images"
-
-
-async def refresh_gokz_map_catalog(scope: str = "KZT") -> None:
-    """Load the persisted GOKZ.TOP map catalog before resolving a map name."""
-    try:
-        await get_maps(scope)
-    except Exception:
-        # Map lookup continues with the bundled catalog when the API/cache is
-        # unavailable; record queries will report their own API errors.
-        logger.debug("Unable to refresh GOKZ.TOP map catalog", exc_info=True)
 
 
 def is_dev_superuser(event: Event) -> bool:
@@ -300,7 +283,8 @@ async def _(event: Event, args: Message = CommandArg()):
         return await ban_.send(cd.error)
 
     try:
-        bans = await fetch_personal_bans(steamid64=cd.steamid)
+        result = await query(ban_, event, "ban", command_input(cd))
+        bans = result.data["bans"]
     except GOKZTopAPIError:
         return await ban_.finish(GOKZ_TOP_UNAVAILABLE, at_sender=True)
 
@@ -347,23 +331,14 @@ async def _(event: Event, args: Message = CommandArg()):
         return await wr.finish("🗺地图名都不给我怎么帮你查WR (￣^￣) ")
 
 
-    await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
-    map_name, candidates = resolve_map_name(cd.args[0])
-    if candidates:
-        return await wr.finish(map_selection_message(
-            candidates,
-            lambda selected: selected_gokz_command("wr", selected, cd),
-            event.get_user_id(),
-        ))
-    if not map_name:
-        return await wr.finish("未找到该地图")
-
+    result = await query(wr, event, "wr", command_input(cd), target=cd.steamid if cd.steamid2 else None)
+    map_name = result.data["map_name"]
     kz_mode = cd.mode
 
     sections = []
 
     try:
-        data = await fetch_world_record(map_name, kz_mode, "NUB")
+        data = result.data["records"]["NUB"]
         if data:
             sections.append(("Overall世界纪录", [
                 f"玩家:　　{data['player_name']}",
@@ -380,7 +355,7 @@ async def _(event: Event, args: Message = CommandArg()):
         return await wr.finish(GOKZ_TOP_UNAVAILABLE)
 
     try:
-        pro = await fetch_world_record(map_name, kz_mode, "PRO")
+        pro = result.data["records"]["PRO"]
         if pro:
             sections.append(("裸跳世界纪录", [
                 f"玩家:　　{pro['player_name']}",
@@ -416,7 +391,8 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
 
 
     try:
-        data = await fetch_personal_recent(cd.steamid, format_kzmode(cd.mode, "m"))
+        result = await query(pr, event, "pr", command_input(cd))
+        data = result.record
     except GOKZTopAPIError:
         return await pr.finish(GOKZ_TOP_UNAVAILABLE)
     if not data:
@@ -465,26 +441,10 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
         return await wr.finish("🗺地图名都不给我怎么帮你查PB (￣^￣) ")
 
 
-    await refresh_gokz_map_catalog(format_kzmode(cd.mode, "m").upper())
-    map_name, candidates = resolve_map_name(cd.args[0])
-    if candidates:
-        return await pb.finish(map_selection_message(
-            candidates,
-            lambda selected: selected_gokz_command("pb", selected, cd),
-            event.get_user_id(),
-        ))
-    if not map_name:
-        return await pb.finish("未找到该地图")
-
+    result = await query(pb, event, "pb", command_input(cd), target=cd.steamid if cd.steamid2 else None)
+    map_name = result.data["map_name"]
+    data, pro = result.data["records"]["NUB"], result.data["records"]["PRO"]
     sections = []
-
-    try:
-        data, pro = await asyncio.gather(
-            fetch_personal_best(cd.steamid, map_name, format_kzmode(cd.mode, "m"), "NUB"),
-            fetch_personal_best(cd.steamid, map_name, format_kzmode(cd.mode, "m"), "PRO"),
-        )
-    except GOKZTopAPIError:
-        return await pb.finish(GOKZ_TOP_UNAVAILABLE)
 
     if data:
         lines = [
@@ -543,41 +503,11 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
         return await rank.finish(cd.error)
 
 
-    leaderboard_url = f"{GOKZ_TOP_V1}/leaderboards/players/{cd.steamid}"
-    player_url = f"{GOKZ_TOP_V1}/players/{cd.steamid}"
-    
-    # Player and leaderboard reads are public v1 endpoints.
-    headers = {}
-    
-    # Fetch player info to get name/alias (silently ignore errors)
-    player_name = 'N/A'
-    try:
-        player_data = await fetch_json(player_url, timeout=30, headers=headers)
-        # Only use player_data if it's a valid success response (not an error response)
-        if player_data and isinstance(player_data, dict) and 'detail' not in player_data:
-            player_name = player_data.get('alias') or player_data.get('name', 'N/A')
-    except Exception:
-        # Silently ignore any errors when fetching player info
-        pass
-    
-    # If update flag is set, use PUT request with kz_timer format
+    result = await query(rank, event, "rank", command_input(cd))
+    player_data = result.data["player"]
+    player_name = player_data.get("alias") or player_data.get("name", "N/A")
+    rank_data = normalize_leaderboard_rank(result.data["rank"])
     if cd.update:
-        update_data = await put_json(leaderboard_url, timeout=30, headers=headers)
-        if update_data is None:
-            return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
-        
-        # Check for error response (API returned non-200 with detail field)
-        if isinstance(update_data, dict) and update_data.get('detail'):
-            return await rank.finish(update_data.get('detail'))
-
-        params = {"scope": format_kzmode(cd.mode, 'm').upper()}
-        rank_data = await fetch_json(leaderboard_url, params=params, timeout=30, headers=headers)
-        
-        # Check if response is not a valid success response (missing required fields)
-        if not isinstance(rank_data, dict) or rank_data.get('detail'):
-            return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
-        rank_data = normalize_leaderboard_rank(rank_data)
-        
         # Format response with update information
         differ = rank_data.get('differ', {})
         
@@ -692,20 +622,6 @@ async def handle_rank(bot: Bot, event: Event, args: Message = CommandArg()):
             ╚═════════════
         """).strip()
     else:
-        params = {"scope": format_kzmode(cd.mode, 'm').upper()}
-        rank_data = await fetch_json(leaderboard_url, params=params, timeout=30, headers=headers)
-        if rank_data is None:
-            return await rank.finish("gokz-top API服务暂时不可用，请稍后再试。")
-        
-        # Check for error response (API returned non-200 with detail field)
-        if isinstance(rank_data, dict) and rank_data.get('detail'):
-            return await rank.finish(rank_data.get('detail'))
-        
-        # Check if response is not a valid success response (missing required fields)
-        if not isinstance(rank_data, dict) or rank_data.get('detail'):
-            return await rank.finish("gokz-top API返回了无效数据，请稍后再试。")
-        rank_data = normalize_leaderboard_rank(rank_data)
-        
         content = dedent(f"""
             ╔════════════
             ║ 玩家:　　　{player_name}
@@ -757,63 +673,17 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
     if not args:
         return await review.finish("🗺地图名都不给我怎么帮你查评价 (￣^￣) ")
     
-    await refresh_gokz_map_catalog()
-    map_name, candidates = resolve_map_name(args.extract_plain_text().strip())
-    if candidates:
-        return await review.finish(map_selection_message(
-            candidates,
-            lambda selected: map_command("review", selected),
-            event.get_user_id(),
-        ))
-    if not map_name:
-        return await review.finish("未找到该地图，请检查地图名是否正确。")
-    
-    BASE_URL = GOKZ_TOP_V1
-    
-    # Review reads are public v1 endpoints.
-    headers = {}
-    
-    # Fetch review summary
-    summary_url = f"{BASE_URL}/maps/reviews"
-    summary_params = {"map_name": map_name, "limit": 100}
-    summary_data = await fetch_json(summary_url, params=summary_params, headers=headers, timeout=30)
-    
-    if summary_data is None:
-        return await review.finish("gokz-top API服务暂时不可用，请稍后再试。")
-    
-    # Check for error response (API returned non-200 with detail field)
-    if isinstance(summary_data, dict) and summary_data.get('detail'):
-        return await review.finish(summary_data.get('detail'))
-    
-    # Ensure we have a valid dict response
-    if not isinstance(summary_data, dict):
-        return await review.finish("gokz-top API返回了无效数据，请稍后再试。")
-    
-    summary_list = summary_data.get('data', [])
-    if not summary_list or len(summary_list) == 0:
+    result = await query(review, event, "review", CommandInput(arguments=(args.extract_plain_text().strip(),)))
+    map_data = result.data["map"]
+    map_name = map_data["name"]
+    ratings = result.data["ratings"]
+    if not ratings:
         return await review.finish(f"地图 {map_name} 暂无评价数据。")
-    
-    ratings = [item.get('content', {}) for item in summary_list]
-    def average(aspect):
-        values = [rating[aspect] for rating in ratings if rating.get(aspect) is not None]
-        return (sum(values) / len(values), len(values)) if values else (0, 0)
-    overall_avg, overall_count = average('overall')
-    visuals_avg, visuals_count = average('visuals')
-    gameplay_avg, gameplay_count = average('gameplay')
-    comment_count = sum(bool(rating.get('comment')) for rating in ratings)
-    
-    # Fetch map data to get authors
-    map_url = f"{BASE_URL}/maps"
-    map_data = await fetch_json(map_url, params={"name": map_name, "limit": 1}, headers=headers, timeout=30)
-    
-    # Format author names (use alias if available, otherwise name)
-    author_names = []
-    if isinstance(map_data, list) and map_data:
-        authors = map_data[0].get('authors', [])
-        for author in authors:
-            author_name = author if isinstance(author, str) else author.get('name', '未知作者')
-            author_names.append(author_name)
-    
+    overall_avg, overall_count = result.data["summary"]["overall"]
+    visuals_avg, visuals_count = result.data["summary"]["visuals"]
+    gameplay_avg, gameplay_count = result.data["summary"]["gameplay"]
+    comment_count = result.data["comment_count"]
+    author_names = [author if isinstance(author, str) else author.get('name', '未知作者') for author in map_data.get('authors', [])]
     # Build summary content
     content = dedent(f"""
         ╔ 地图:　{map_name}
@@ -833,11 +703,8 @@ async def handle_review(bot: Bot, event: Event, args: Message = CommandArg()):
         ║ 评论数量:　{comment_count}
     """).strip()
     
-    # Fetch comments from comments endpoint
-    comments_url = f"{BASE_URL}/maps/reviews"
-    comments_params = {"map_name": map_name, "offset": 0, "limit": 100, "with_comments_only": "true"}
-    comments_data = await fetch_json(comments_url, params=comments_params, headers=headers, timeout=30)
-    
+    comments_data = result.data["comments"]
+
     if comments_data and isinstance(comments_data, dict):
         comments_count = comments_data.get('count', 0)
         comments_list = comments_data.get('data', [])
@@ -899,67 +766,14 @@ async def handle_rate(bot: Bot, event: Event, args: Message = CommandArg()):
     if not args:
         return await rate.finish("🗺地图名都不给我怎么帮你评分 (￣^￣) ")
     
-    # Parse arguments
-    args_text = args.extract_plain_text().strip()
-    args_list = args_text.split()
-    
-    # Search for map name
-    await refresh_gokz_map_catalog()
-    map_name, candidates = resolve_map_name(args_list[0])
-    if candidates:
-        trailing_args = " ".join(args_list[1:])
-        return await rate.finish(map_selection_message(
-            candidates,
-            lambda selected: map_command("rate", selected, trailing_args),
-            event.get_user_id(),
-        ))
-    if not map_name:
-        return await rate.finish("未找到该地图，请检查地图名是否正确。")
-    
-    maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
-    if not isinstance(maps, list) or not maps:
-        return await rate.finish("未找到该地图，请检查地图名是否正确。")
-
-    if len(args_list) < 2:
-        reviews = await fetch_json(
-            f"{GOKZ_TOP_V1}/maps/reviews",
-            params={"map_id": maps[0]["id"], "steamid64": cd.steamid, "limit": 1},
-            timeout=30,
-        )
-        current_rating = None
-        if isinstance(reviews, dict):
-            review_data = reviews.get("data")
-            if isinstance(review_data, list) and review_data:
-                content = review_data[0].get("content")
-                if isinstance(content, dict) and isinstance(content.get("overall"), int):
-                    current_rating = content["overall"]
-        return await rate.finish(rate_selection_message(map_name, current_rating))
-
-    try:
-        overall_star = int(args_list[1])
-        gameplay_star = int(args_list[2]) if len(args_list) > 3 and args_list[2].isdigit() else None
-        visual_star = int(args_list[3]) if gameplay_star is not None and len(args_list) > 3 else None
-    except ValueError:
-        return await rate.finish("新接口要求提供总体评分 (1-5)。")
-    if not all(1 <= value <= 5 for value in (overall_star, gameplay_star, visual_star) if value is not None):
-        return await rate.finish("评分必须在1-5之间")
-
-    comment_start = 4 if visual_star is not None else 2
-    content = {"overall": overall_star, "gameplay": gameplay_star, "visuals": visual_star}
-    if comment_text := ' '.join(args_list[comment_start:]):
-        # The review API models comments as an object (currently ``text``),
-        # rather than accepting a bare string.
-        content["comment"] = {"text": comment_text}
-    result = await put_json(
-        f"{GOKZ_TOP_V1}/maps/reviews",
-        json_data={"map_id": maps[0]["id"], "steamid64": cd.steamid, "content": content},
-        # Bot-authenticated review writes use the active binding secret.  The
-        # API deliberately does not accept the legacy GOKZ_TOP_API_KEY here.
-        headers={"X-QQ-Bot-Key": QQ_BOT_SECRET} if QQ_BOT_SECRET else None,
-        timeout=30,
-    )
-    if not isinstance(result, dict) or result.get("detail"):
-        return await rate.finish(f"提交评分失败: {result.get('detail', '请稍后再试。') if isinstance(result, dict) else '请稍后再试。'}")
+    # Keep QQ's whitespace grammar; named Discord options reach the same feature.
+    request = command_input(cd)
+    request.arguments = tuple(args.extract_plain_text().strip().split())
+    result = await query(rate, event, "rate", request)
+    map_name = result.data["map_name"]
+    if not result.data.get("saved"):
+        return await rate.finish(rate_selection_message(map_name, result.data.get("current_rating")))
+    overall_star = result.data["content"]["overall"]
     content = f"✅ 已成功为地图 {map_name} 评分:\n总体评分: {overall_star}⭐"
     
     # Add newline at start for group messages
@@ -980,50 +794,11 @@ async def handle_comment(event: Event, args: Message = CommandArg()):
     if len(args_list) < 2 or not args_list[1].strip():
         return await comment.finish("用法: /comment map_name 评论内容")
 
-    await refresh_gokz_map_catalog()
-    map_name, candidates = resolve_map_name(args_list[0])
-    if candidates:
-        return await comment.finish(map_selection_message(
-            candidates,
-            lambda selected: map_command("comment", selected, args_list[1]),
-            event.get_user_id(),
-        ))
-    if not map_name:
-        return await comment.finish("未找到该地图，请检查地图名是否正确。")
-
-    maps = await fetch_json(f"{GOKZ_TOP_V1}/maps", params={"name": map_name, "limit": 1}, timeout=30)
-    if not isinstance(maps, list) or not maps:
-        return await comment.finish("未找到该地图，请检查地图名是否正确。")
-
-    reviews = await fetch_json(
-        f"{GOKZ_TOP_V1}/maps/reviews",
-        params={"map_id": maps[0]["id"], "steamid64": cd.steamid, "limit": 1},
-        timeout=30,
-    )
-    review_data = reviews.get("data") if isinstance(reviews, dict) else None
-    existing_content = review_data[0].get("content") if isinstance(review_data, list) and review_data else None
-    if not isinstance(existing_content, dict) or not isinstance(existing_content.get("overall"), int):
-        return await comment.finish("请先使用 /rate 地图名 星级 评分，再使用 /comment 写评论。")
-
-    comment_text = args_list[1].strip()
-    if isinstance(existing_content.get("comment"), dict):
-        comment_value = {**existing_content["comment"], "text": comment_text}
-    else:
-        comment_value = {"text": comment_text}
-
-    result = await put_json(
-        f"{GOKZ_TOP_V1}/maps/reviews",
-        json_data={
-            "map_id": maps[0]["id"],
-            "steamid64": cd.steamid,
-            "content": {**existing_content, "comment": comment_value},
-        },
-        headers={"X-QQ-Bot-Key": QQ_BOT_SECRET} if QQ_BOT_SECRET else None,
-        timeout=30,
-    )
-    if not isinstance(result, dict) or result.get("detail"):
-        detail = result.get("detail", "请稍后再试。") if isinstance(result, dict) else "请稍后再试。"
-        return await comment.finish(f"提交评论失败: {detail}")
+    request = command_input(cd)
+    request.arguments = (args_list[0],)
+    request.comment = args_list[1].strip()
+    result = await query(comment, event, "comment", request)
+    map_name = result.data["map_name"]
     await comment.finish(f"✅ 已为地图 {map_name} 提交评论。")
 
 
@@ -1035,9 +810,10 @@ async def handle_kz(bot: Bot, event: Event, args: Message = CommandArg()):
 
     await bot.send(event, "正在生成玩家卡片…")
     try:
-        url = await player_card_screenshot_async(
-            cd.steamid, cd.mode, store.get_cache_dir("player_cards"), force_update=cd.update,
-        )
+        result = await query(kz, event, "kz", command_input(cd))
+        url = result.file
+    except FinishedException:
+        raise
     except Exception as exc:
         logger.warning(f"Player card failed for {cd.steamid}: {type(exc).__name__}")
         return await bot.send(event, f"玩家卡片生成失败，可直接查看资料：\nhttps://gokz.top/profile/{cd.steamid}")

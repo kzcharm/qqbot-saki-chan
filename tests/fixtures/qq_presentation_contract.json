@@ -1,23 +1,39 @@
 {
   "baseline": "154452879d0f303b25a14140e450cc8c9c0b81d9",
   "files": {
-    "src/plugins/gokz/plugins/general.py": "80c488f95383c0359bbdc0877c8f058b5b964f5280b23c3cad5ce353e2c39c13",
-    "src/plugins/gokz/plugins/gokz_top.py": "5aac1c8dad565deb5ad3075ad45bab6f682008e74b42fc3fe468a50273c72ac2",
-    "src/plugins/gokz/plugins/kzglobal.py": "d4bbe4d75c9791ab99651a7f2b9f4e5b8687695d4c62b421dbb57103db8612d4",
-    "src/plugins/gokz/plugins/api_status.py": "fabc386ac703f09a49f6e5244377de7e146b6937a33250eb65216580e577a04d",
-    "src/plugins/gokz/plugins/perfectworld.py": "185ccc202fc34a57bb3e9ef4acd6113f51b1e41728acbb58a71f954ca00bd484",
-    "src/plugins/gokz/plugins/feedback.py": "78a2b77d3854729565c74dac376e2d4b337e0347d3ed5e40c661f90b0fa05887",
     "src/plugins/gokz/core/binding_message.py": "664fcdefc5fa9eaf1de12b866b8a8a21839099b5043104c0c674e6cc5d4273a8",
     "src/plugins/gokz/core/mode_message.py": "0d79f38599fdca144020464b748dca097ac359d366a308a7df7330a64c8a2bf6",
     "src/plugins/gokz/core/profile.py": "d99693b0e4f5416f166a1568e16ec02095daa59d7b47519c8a4e1640e98c1f30",
     "src/plugins/gokz/core/daily_map_message.py": "f0607c7c3c24d4f37686d92b03457b18ffdaf61568e14e1e6884bf4291018310",
     "src/plugins/gokz/core/keyboard.py": "9a7b73315233dd399d06c97b22549cacb93dc1ab4aaa2ab914c5a0c518579208",
     "src/plugins/gokz/core/rate_message.py": "2b1bee71b009d8f602a09e4e2f818003b863457772c52a9a76cdd760547c91f0",
-    "src/plugins/gokz/core/map_selection.py": "db449946cc9154f02a2c2de4912780eb218af6dc8bafa4a37c3295b3538a073b",
     "src/plugins/gokz/core/formatter.py": "f643b1c7babb5eaa5e65c4983d7141e0c98fc88ca5a65d3fe56b3a0664c1e61a",
     "src/plugins/gokz/core/pr_compliment.py": "cfa33bbd6219bca732b881a694a741b610e29d91e96c434a46f047657eac097a",
     "src/plugins/gokz/core/server_status.py": "df8a1ad7ce184308159702a6da40afb07ebcd3f09cd82367fa7935e69d92d792",
     "src/plugins/gokz/core/group_settings.py": "6008fe6bbe3ecd7c8bd8ac87770fddbc42cba4d75df20159548c3deff0d23f88",
     "src/plugins/gokz/core/command_panel.py": "833c4cb6f89777d76896dbe1227dcc2c78dd0fdc3719f37fcc7cca2ce97a8b6a"
+  },
+  "functions": {
+    "src/plugins/gokz/plugins/kzglobal.py": {
+      "selected_gokz_command": "c6413184d54728143ef25670460de191afb25480b67bd730dcbfb699463c62b7",
+      "pb_action_keyboard": "a5d0f2a3748719357f5cd7a7336fa4ac8d7d8c6094500f9062942cc41c1870f9",
+      "pb_keyboard_message": "db18e8cab0a948f76f0bd353cdb8dd9a222a00f7c5d6a0390354974d8a2072b1",
+      "pr_markdown_content": "d6efed07a0bf3e8e0abec20c0520667849e28b12d8acadcb4eca9fd1567ee92d",
+      "record_sections_markdown_content": "55ac4950c75cf5022c9cb128aa39ab96a908885d8201bb439fb8d2f7c58456cd",
+      "pb_markdown_content": "43ee36b187ec78c23941d73296f18f7a92f9b2ff65dc552f0e74b43cf9db83aa",
+      "wr_markdown_content": "6f345d3bb8382c2f4ce22524903734c8ca9d1da0784d9c08369936f0a357888f",
+      "normalize_leaderboard_rank": "2e853ef9c9103ee3040733f7d9f5124789c0c20602cd1991c52e5c16a90330f3",
+      "gokz_record_mode_label": "83b0a5c70a803807db5d6c18bea3ecc48127230c54316a9db13f3a4b6f95d50f",
+      "gokz_record_rating_line": "09afb3ae049d8bbc8538d55eeb6e50dcd8fea25314494c0adadcb24195fe14fd",
+      "gokz_record_tier": "d4e1129abb2af4143e61c9471c4e13e781c4da353648db00748ade20d6bfe5e8",
+      "convert_to_shanghai_time": "01c1967f84c900d949947ddfec0cd9727ac7a9eb79f8882049c77f6e1c78e731"
+    },
+    "src/plugins/gokz/core/map_selection.py": {
+      "map_command": "a38c05b0b8e63c04911ea082b32908e079e3e423f95e454766cd3c27a5c04e5d",
+      "map_selection_message": "f29c1b0ffd07ab58d50b2466e1cc46ef613dff47d05770f7661118dfb979f69c"
+    },
+    "src/plugins/gokz/plugins/feedback.py": {
+      "feedback_message": "562f9dc201327cc392c427051c1bbcb980117c5a0c0ae711d3aed0ed15fe8c03"
+    }
   }
 }

@@ -5,8 +5,7 @@ from nonebot.adapters.qq.models import MessageMarkdown
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
 
 
-FEEDBACK_GROUP_URL = "https://qm.qq.com/q/c8P0TtgpIA"
-FEEDBACK_QR_CODE_URL = "https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/qrcode.png"
+from ..application.links import FEEDBACK_GROUP_URL, FEEDBACK_QR_CODE_URL
 
 feedback = on_command("feedback")
 

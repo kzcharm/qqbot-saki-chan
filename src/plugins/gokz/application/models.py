@@ -34,6 +34,8 @@ class Result:
     entries: list[dict[str, Any]] = field(default_factory=list)
     footer: str = ""
     record: dict[str, Any] | None = None
+    # Unformatted feature data consumed by platform-specific presentation.
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 class UserError(Exception):

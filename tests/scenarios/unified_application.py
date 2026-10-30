@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import hmac
 import os
@@ -18,19 +17,18 @@ nonebot.init(_env_file=None, driver="~httpx+~websockets", log_level="WARNING")
 assert nonebot.load_plugin("src.plugins.gokz")
 assert any(p.name == "unified" for p in nonebot.get_loaded_plugins())
 
+from nonebot.adapters.discord.api import MessageFlag
+from nonebot.adapters.discord.commands.storage import _application_command_storage
 from src.plugins.gokz.application import service
 from src.plugins.gokz.application.catalog import BY_NAME, COMMANDS
 from src.plugins.gokz.application.commands import (
     definition,
-    request_from_result,
     discord_request,
+    request_from_result,
 )
 from src.plugins.gokz.application.context import RequestContext
 from src.plugins.gokz.application.models import CommandInput, Result, UserError
 from src.plugins.gokz.presentation import discord, qq
-from src.plugins.gokz.plugins.unified import context
-from nonebot.adapters.discord.commands.storage import _application_command_storage
-from nonebot.adapters.discord.api import MessageFlag
 
 
 class ApplicationTests(unittest.IsolatedAsyncioTestCase):
@@ -203,6 +201,20 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.title, "Test Player")
         self.assertEqual(result.tone, "warning")
         self.assertEqual(discord.render(result, "a")["embeds"][0].color, 0xF1C40F)
+        from src.plugins.gokz.core.profile import profile_markdown
+
+        data = result.data
+        self.assertIn(
+            "玩家资料",
+            profile_markdown(
+                data["player"],
+                data["links"],
+                stats=data["stats"],
+                jumpstats=data["jumpstats"],
+                achievements=data["achievements"],
+                leaderboard=data["rank"],
+            ),
+        )
 
     def test_player_server_layouts_and_relative_pr_dates(self):
         profile = {
@@ -499,6 +511,278 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
                 any(segment.type == "file_image" for segment in Message(message)),
                 "QQ /help must retain its original help image, not generic Markdown",
             )
+
+    async def test_qq_record_event_uses_shared_executor_once(self):
+        from nonebot.adapters.qq import Adapter, Bot
+        from nonebot.adapters.qq.config import BotInfo
+        from nonebot.adapters.qq.event import C2CMessageCreateEvent
+        from nonebot.message import handle_event
+        from sqlmodel import Session
+        from src.plugins.gokz.db.models import User
+
+        adapter = nonebot.get_adapter(Adapter)
+        with Session(service.engine) as session:
+            session.add(
+                User(
+                    qid="shared-qq",
+                    name="Player",
+                    steamid="76561197960278073",
+                    mode="KZT",
+                )
+            )
+            session.commit()
+        event = C2CMessageCreateEvent.model_validate(
+            {
+                "id": "q-record",
+                "content": "/pb bkz_cakewalk",
+                "timestamp": "2026-10-30T10:00:00Z",
+                "author": {"id": "shared-qq", "user_openid": "shared-qq"},
+            }
+        )
+        bot = Bot(adapter, "123", BotInfo(id="123", token="fake", secret="fake"))
+        result = Result(
+            "bkz_cakewalk",
+            data={"map_name": "bkz_cakewalk", "records": {"NUB": None, "PRO": None}},
+        )
+        with (
+            patch.object(service, "execute", AsyncMock(return_value=result)) as execute,
+            patch.object(Bot, "send", AsyncMock()) as send,
+        ):
+            await handle_event(bot, event)
+            execute.assert_awaited_once()
+            self.assertEqual(execute.call_args.args[0].platform, "qq")
+            self.assertEqual(execute.call_args.args[1], "pb")
+            send.assert_awaited_once()
+            self.assertIn("个人最佳", str(send.call_args))
+        # An intentional matcher finish must not be caught as a card-generation
+        # exception and trigger a second error reply.
+        event = C2CMessageCreateEvent.model_validate(
+            {
+                "id": "q-card",
+                "content": "/kz",
+                "timestamp": "2026-10-30T10:00:00Z",
+                "author": {"id": "shared-qq", "user_openid": "shared-qq"},
+            }
+        )
+        with (
+            patch.object(
+                service,
+                "execute",
+                AsyncMock(side_effect=UserError("Card failed", "玩家卡片生成失败")),
+            ),
+            patch.object(Bot, "send", AsyncMock()) as send,
+        ):
+            await handle_event(bot, event)
+            self.assertEqual(send.await_count, 2)
+
+    async def test_review_writes_use_same_rules_and_bound_actor_on_both_platforms(self):
+        steam = "76561197960278073"
+
+        async def api(path, **kwargs):
+            if path == "/maps":
+                return [{"id": "map-id", "name": "bkz_cakewalk"}]
+            if path == "/maps/reviews":
+                return {
+                    "data": [
+                        {
+                            "content": {
+                                "overall": 4,
+                                "visuals": 3,
+                                "comment": {"text": "old", "language": "en"},
+                            }
+                        }
+                    ]
+                }
+            raise AssertionError(path)
+
+        with (
+            patch.object(service, "get_maps", AsyncMock()),
+            patch.object(
+                service, "resolve_map_name", return_value=("bkz_cakewalk", [])
+            ),
+            patch.object(service, "read", side_effect=api),
+            patch.object(service, "binding", AsyncMock(return_value=steam)),
+            patch.object(service, "QQ_BOT_SECRET", "test-secret"),
+            patch.object(service, "put_json", AsyncMock(return_value={})) as write,
+        ):
+            for platform in ("qq", "discord"):
+                ctx = RequestContext(platform, "actor")
+                for name in ("rate", "comment"):
+                    result = await service.execute(
+                        ctx,
+                        name,
+                        CommandInput(
+                            arguments=("cakewalk",),
+                            overall=5,
+                            comment="a multiword comment -m literal",
+                            steamid="76561198000000000",
+                        ),
+                    )
+                    payload = write.call_args.kwargs["json_data"]
+                    self.assertEqual(payload["steamid64"], steam)
+                    self.assertEqual(
+                        payload["content"]["comment"]["text"],
+                        "a multiword comment -m literal",
+                    )
+                    self.assertTrue(result.data["saved"])
+                    if name == "comment":
+                        self.assertEqual(payload["content"]["overall"], 4)
+                        self.assertEqual(
+                            payload["content"]["comment"]["language"], "en"
+                        )
+                count = write.await_count
+                for request in (
+                    CommandInput(arguments=("cakewalk",), overall=6),
+                    CommandInput(
+                        arguments=("cakewalk",), overall=4, comment="x" * 1001
+                    ),
+                ):
+                    with self.assertRaises(UserError):
+                        await service.execute(ctx, "rate", request)
+                self.assertEqual(write.await_count, count)
+
+    async def test_progress_calculations_are_shared_and_split_teleported_runs(self):
+        records = [
+            {"time": t, "teleports": tp, "created_on": str(i)}
+            for i, (t, tp) in enumerate([(20, 1), (21, 1), (15, 1), (10, 0)])
+        ]
+        with (
+            patch.object(service, "get_maps", AsyncMock()),
+            patch.object(
+                service, "resolve_map_name", return_value=("bkz_cakewalk", [])
+            ),
+            patch.object(
+                service,
+                "read",
+                AsyncMock(return_value=[{"id": "map", "name": "bkz_cakewalk"}]),
+            ),
+            patch.object(
+                service, "fetch_run_history", AsyncMock(return_value={"data": records})
+            ),
+        ):
+            results = [
+                await service.execute(
+                    RequestContext(platform, "actor"),
+                    "mp",
+                    CommandInput(arguments=("cakewalk",), steamid="76561197960278073"),
+                )
+                for platform in ("qq", "discord")
+            ]
+            self.assertEqual(results[0].data, results[1].data)
+            self.assertEqual(
+                [r["time"] for r, _ in results[0].data["progress"]["NUB"]], [15, 20]
+            )
+            self.assertEqual(results[0].data["progress"]["NUB"][0][1], 1)
+            self.assertEqual(
+                [r["time"] for r, _ in results[0].data["progress"]["PRO"]], [10]
+            )
+
+    async def test_zz_catalog_feature_without_qq_view_automatically_runs_on_both_platforms(
+        self,
+    ):
+        from nonebot.adapters.qq import Adapter, Bot
+        from nonebot.adapters.qq.config import BotInfo
+        from nonebot.adapters.qq.event import C2CMessageCreateEvent
+        from nonebot.matcher import matchers
+        from nonebot.message import handle_event
+        from src.plugins.gokz.application.catalog import CommandSpec
+        from src.plugins.gokz.plugins import unified
+
+        before = {m for group in matchers.values() for m in group}
+        unified.register(
+            CommandSpec("shared_feature_probe", "Test shared feature", "测试共享功能")
+        )
+        try:
+            adapter = nonebot.get_adapter(Adapter)
+            event = C2CMessageCreateEvent.model_validate(
+                {
+                    "id": "q-probe",
+                    "content": "/shared_feature_probe",
+                    "timestamp": "2026-10-30T10:00:00Z",
+                    "author": {"id": "qq-user", "user_openid": "qq-user"},
+                }
+            )
+            bot = Bot(adapter, "123", BotInfo(id="123", token="fake", secret="fake"))
+            with (
+                patch.object(
+                    service,
+                    "execute",
+                    AsyncMock(return_value=Result("共享结果", "one feature")),
+                ) as execute,
+                patch.object(Bot, "send", AsyncMock()) as send,
+            ):
+                await handle_event(bot, event)
+                execute.assert_awaited_once()
+                self.assertEqual(execute.call_args.args[1], "shared_feature_probe")
+                send.assert_awaited_once()
+                self.assertIn("one feature", str(send.call_args))
+            self.assertIn("shared_feature_probe", _application_command_storage)
+            from nonebot.adapters.discord import Adapter as DiscordAdapter
+            from nonebot.adapters.discord import Bot as DiscordBot
+            from nonebot.adapters.discord.config import BotInfo as DiscordInfo
+            from nonebot.adapters.discord.event import (
+                ApplicationCommandInteractionEvent,
+            )
+
+            discord_event = ApplicationCommandInteractionEvent.model_validate(
+                {
+                    "id": "100",
+                    "application_id": "1450135161294422291",
+                    "type": 2,
+                    "data": {"id": "101", "name": "shared_feature_probe", "type": 1},
+                    "channel_id": "102",
+                    "user": {
+                        "id": "103",
+                        "username": "tester",
+                        "discriminator": "0",
+                        "avatar": None,
+                    },
+                    "token": "fake",
+                    "version": 1,
+                    "locale": "en-US",
+                    "app_permissions": "0",
+                    "entitlements": [],
+                    "authorizing_integration_owners": {},
+                    "context": 0,
+                    "attachment_size_limit": 10485760,
+                }
+            )
+            dc_bot = DiscordBot(
+                nonebot.get_adapter(DiscordAdapter),
+                "1450135161294422291",
+                DiscordInfo(token="fake"),
+            )
+            with (
+                patch.object(
+                    service,
+                    "execute",
+                    AsyncMock(return_value=Result("Shared result", "one feature")),
+                ) as execute,
+                patch.object(
+                    service, "player", AsyncMock(return_value="76561197960278073")
+                ),
+                patch.object(
+                    DiscordBot, "create_interaction_response", AsyncMock(), create=True
+                ),
+                patch.object(
+                    DiscordBot,
+                    "edit_origin_interaction_response",
+                    AsyncMock(),
+                    create=True,
+                ) as edit,
+            ):
+                await handle_event(dc_bot, discord_event)
+                execute.assert_awaited_once()
+                self.assertEqual(execute.call_args.args[0].platform, "discord")
+                self.assertEqual(execute.call_args.args[1], "shared_feature_probe")
+                edit.assert_awaited_once()
+
+        finally:
+            for group in list(matchers.values()):
+                for matcher in list(group):
+                    if matcher not in before:
+                        matcher.destroy()
+            _application_command_storage.pop("shared_feature_probe", None)
 
     def test_qq_command_panel_uses_original_descriptions(self):
         from src.plugins.gokz.core.command_panel import collect_commands

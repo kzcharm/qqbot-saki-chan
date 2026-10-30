@@ -1,29 +1,20 @@
-import asyncio
-import json
 from pathlib import Path
 from textwrap import dedent
 
-from nonebot import logger
-from ..presentation.qq_legacy import on_command
-from nonebot.adapters.qq import Bot, MessageEvent, Message, MessageSegment
+from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
 from nonebot.adapters.qq.models import MessageMarkdown
 from nonebot.params import CommandArg
-from sqlalchemy.exc import NoResultFound
-from sqlmodel import Session, select
-
-from src.plugins.gokz.core.kreedz import format_kzmode
-from src.plugins.gokz.core.steam_user import convert_steamid
-from src.plugins.gokz.core.binding_code import verify_binding_code
 from src.plugins.gokz.core.binding_message import binding_help_message
-from src.plugins.gokz.core.profile import profile_markdown
-from src.plugins.gokz.core.mode_message import mode_selection_message
 from src.plugins.gokz.core.keyboard import KeyboardBuilder
-from src.plugins.gokz.config import QQ_BOT_SECRET
-from ..api.helper import fetch_json
-from ..core.command_helper import CommandData
-from ..db.db import engine
-from ..db.models import User
+from src.plugins.gokz.core.kreedz import format_kzmode
+from src.plugins.gokz.core.mode_message import mode_selection_message
+from src.plugins.gokz.core.profile import profile_markdown
+from src.plugins.gokz.core.steam_user import convert_steamid
 
+from ..application.models import CommandInput
+from ..core.command_helper import CommandData
+from ..presentation.qq_bridge import command_input, query
+from ..presentation.qq_legacy import on_command
 
 bind = on_command("bind", aliases={"绑定"})
 mode = on_command("mode", aliases={"模式"})
@@ -49,23 +40,12 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
     if cd.error:
         return await profile.finish(cd.error)
 
-    player_url = f"{GOKZ_TOP_V1}/players/{cd.steamid}"
-    social_links_url = f"{player_url}/social-links"
-    player_data, social_links = await asyncio.gather(
-        fetch_json(player_url, timeout=30),
-        fetch_json(social_links_url, timeout=30),
-    )
-    if not isinstance(player_data, dict) or player_data.get("detail") or not player_data.get("steamid64"):
-        return await profile.finish("未找到 GOKZ.TOP 玩家资料，或 API 暂时不可用，请稍后再试。")
-
-    scope = player_data.get("primary_scope") or player_data.get("primary_mode")
-    stats, jumpstats, achievements, leaderboard = await asyncio.gather(
-        fetch_json(f"{player_url}/stats", timeout=30),
-        fetch_json(f"{player_url}/jumpstats", params={"type": "LJ", "limit": 1, "sort_by": "distance", "sort_order": "desc"}, timeout=30),
-        fetch_json(f"{player_url}/tournament-achievements", timeout=30),
-        fetch_json(f"{GOKZ_TOP_V1}/leaderboards/players/{cd.steamid}", params={"scope": scope} if scope else None, timeout=30),
-    )
-    links = social_links if isinstance(social_links, list) else []
+    result = await query(profile, event, "profile", command_input(cd))
+    data = result.data
+    player_data = data["player"]
+    links = data["links"]
+    stats, jumpstats = data["stats"], data["jumpstats"]
+    achievements, leaderboard = data["achievements"], data["rank"]
     content = profile_markdown(
         player_data,
         links,
@@ -83,12 +63,10 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
     if cd.error:
         return await info.finish(cd.error)
     
-    with Session(engine) as session:
-        statement = select(User).where(User.qid == cd.qid)  # NOQA
-        user: User = session.exec(statement).one()
+    result = await query(info, event, "info", command_input(cd))
 
     content = dedent(f"""
-        昵称:             {user.name}
+        昵称:             {result.data["account_name"]}
         steamID:      {convert_steamid(cd.steamid, 2)}
         steamID32:  {convert_steamid(cd.steamid, 32)}
         steamID64:  {convert_steamid(cd.steamid, 64)}
@@ -184,54 +162,12 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
     if not input_text:
         return await bind.finish(binding_help_message())
 
-    if not QQ_BOT_SECRET:
-        return await bind.finish("绑定码功能未配置，请联系管理员")
-
-    try:
-        binding_code_result = verify_binding_code(input_text, QQ_BOT_SECRET)
-    except ValueError:
-        return await bind.finish("绑定码无效或已过期，请重新生成")
-
-    steamid = binding_code_result["steamid64"]
-
-    # 阻止他们绑定前20玩家的steamid
-    top20 = json.load(open("data/gokz/json/top20_players.json"))
-    for player in top20:
-        if steamid == convert_steamid(player.get("steamid64") or player["steamid"], 64):
-            return await bind.finish(f"你是 {player['name']} 吗, 你就绑")
-    # Validate the player and use the GOKZ profile name for the binding.
-    player_url = f'https://api.gokz.top/v1/players/{steamid}'
-    player_data = await fetch_json(player_url, timeout=10)
-    qq_name = player_data.get("name") if isinstance(player_data, dict) else None
-    if not qq_name:
-        return await bind.finish("用户不存在. 你至少上传过一次GOKZ记录吗?\n(最近才入坑的玩家绑不上是正常的)")
-
-    user_id = event.get_user_id()
-    with Session(engine) as session:
-        # A verified code proves account ownership, so it may transfer an
-        # existing Steam binding to the QQ user presenting the code.
-        try:
-            statement = select(User).where(User.steamid == steamid)  # NOQA
-            exist_user: User = session.exec(statement).one()
-            session.delete(exist_user)
-            session.commit()
-        except NoResultFound:
-            pass
-
-        user = session.get(User, user_id)
-        if user:
-            user.name = qq_name
-            user.steamid = steamid
-        else:
-            user = User(qid=user_id, name=qq_name, steamid=steamid)
-            session.add(user)
-        session.commit()
-        session.refresh(user)
-
+    result = await query(bind, event, "bind", CommandInput(arguments=(input_text,)))
+    qq_name = result.data["name"]
     content = dedent(f"""
         绑定成功!
         {qq_name}
-        {user.steamid}
+        {result.data["steamid"]}
     """).strip()
     # Add newline at start for group messages (bot will @ user automatically)
     if getattr(event, 'group_id', None):
@@ -242,29 +178,5 @@ async def bind_steamid(event: MessageEvent, args: Message = CommandArg()):
 @mode.handle()
 async def update_mode(event: MessageEvent, args: Message = CommandArg()):
     mode_ = args.extract_plain_text().strip()
-    with Session(engine) as session:
-        user = session.get(User, event.get_user_id())
-    if not user:
-        return await mode.finish(binding_help_message())
-
-    if not mode_:
-        current = format_kzmode(user.mode, "m").upper()
-        return await mode.finish(mode_selection_message(current))
-
-    try:
-        mode_ = format_kzmode(mode_, "m").upper()
-    except ValueError:
-        return await mode.finish("模式格式不正确")
-
-    qid = event.get_user_id()
-    with Session(engine) as session:
-        user: User | None = session.get(User, qid)
-        if not user:
-            return await mode.finish(binding_help_message())
-
-        user.mode = mode_
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-
-    await mode.finish(mode_selection_message(mode_))
+    result = await query(mode, event, "mode", CommandInput(arguments=(mode_,) if mode_ else ()))
+    await mode.finish(mode_selection_message(result.data["scope"]))

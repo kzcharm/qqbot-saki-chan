@@ -113,10 +113,13 @@ class TestAPIStatusCommand(unittest.IsolatedAsyncioTestCase):
         self.matcher.finish = AsyncMock()
         self.register = MagicMock(return_value=self.matcher)
         self.check = AsyncMock()
+        async def query(*args):
+            return types.SimpleNamespace(data={"status": await self.check()})
         modules = {
             "api_status_tests.presentation.qq_legacy": types.SimpleNamespace(on_command=self.register),
             "nonebot.adapters.qq": types.SimpleNamespace(MessageEvent=object),
-            "api_status_tests.api.global_status": types.SimpleNamespace(check_global_api=self.check),
+            "api_status_tests.presentation.qq_bridge": types.SimpleNamespace(query=query),
+            "api_status_tests.application.models": types.SimpleNamespace(CommandInput=lambda: None),
         }
         with patch.dict(sys.modules, modules):
             self.command = load_module(

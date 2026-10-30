@@ -1,0 +1,526 @@
+{
+  "general/profile": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# 玩家资料\n## Player Name\n- SteamID64: `76561197960278073`\n- 主模式: `KZT`\n- 全球排名: `#20`\n- 地区排名: `cn #2`\n- Rating: `9.50`\n- 积分: `12,345`\n\n[GOKZ.TOP](https://gokz.top/profile/76561197960278073/records) | [Steam](https://steamcommunity.com/profiles/76561197960278073)"
+          }
+        }
+      }
+    ]
+  ],
+  "kzglobal/pb": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# Player Name 的`个人最佳`\n\n![bkz_cakewalk](https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images/bkz_cakewalk.webp)\n\n## 地图信息\n- 地图:　　bkz_cakewalk\n- 难度:　　T3\n- 模式:　　KZT\n\n## 存点记录\n- 玩家:　　Player Name\n- 模式:　　KZT\n- 用时:　　1分01秒250\n- 存点数:　2\n- 分数:　　123\n- Rating:　9.5\n- 服务器:　Test Server\n- 2026年10月1日 18:00\n\n## 裸跳记录\n- 玩家:　　Player Name\n- 模式:　　KZT\n- 用时:　　1分01秒250\n- 分数:　　123\n- Rating:　9.5\n- 服务器:　Test Server\n- 2026年10月1日 18:00"
+          }
+        }
+      },
+      {
+        "type": "keyboard",
+        "data": {
+          "keyboard": {
+            "content": {
+              "rows": [
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_wr",
+                      "render_data": {
+                        "label": "查询WR",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/wr bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_leaderboard",
+                      "render_data": {
+                        "label": "排行榜",
+                        "visited_label": "打开中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 0,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "https://gokz.top/maps/bkz_cakewalk/maptop",
+                        "reply": false,
+                        "enter": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_progress",
+                      "render_data": {
+                        "label": "地图提升",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/mp bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_rate",
+                      "render_data": {
+                        "label": "评分",
+                        "visited_label": "打开评分",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk",
+                        "reply": true,
+                        "enter": true
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  ],
+  "kzglobal/wr": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# bkz_cakewalk `世界记录`\n\n![bkz_cakewalk](https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images/bkz_cakewalk.webp)\n\n## 地图信息\n- 地图:　　bkz_cakewalk\n- 难度:　　T3\n- 模式:　　KZT\n\n## Overall世界纪录\n- 玩家:　　Player Name\n- 模式:　　KZT\n- 用时:　　1分01秒250\n- 存点数:　2\n- 分数:　　123\n- 服务器:　Test Server\n- 2026年10月1日 18:00\n\n## 裸跳世界纪录\n- 玩家:　　Player Name\n- 模式:　　KZT\n- 用时:　　1分01秒250\n- 分数:　　123\n- 服务器:　Test Server\n- 2026年10月1日 18:00"
+          }
+        }
+      },
+      {
+        "type": "keyboard",
+        "data": {
+          "keyboard": {
+            "content": {
+              "rows": [
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_wr",
+                      "render_data": {
+                        "label": "查询WR",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/wr bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_leaderboard",
+                      "render_data": {
+                        "label": "排行榜",
+                        "visited_label": "打开中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 0,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "https://gokz.top/maps/bkz_cakewalk/maptop",
+                        "reply": false,
+                        "enter": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_progress",
+                      "render_data": {
+                        "label": "地图提升",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/mp bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_rate",
+                      "render_data": {
+                        "label": "评分",
+                        "visited_label": "打开评分",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk",
+                        "reply": true,
+                        "enter": true
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  ],
+  "kzglobal/pr": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# Player Name 的`近期记录`\n\n![bkz_cakewalk](https://gokztop-1312466598.cos.ap-guangzhou.myqcloud.com/map-images/bkz_cakewalk.webp)\n\n- 地图:　　bkz_cakewalk\n- 难度:　　T1\n- 模式:　　KZT\n- 玩家:　　Player Name\n- 用时:　　1分01秒250\n- 存点数:　2\n- 分数:　　123\n- 服务器:　Test Server\n- 2026年10月1日 18:00"
+          }
+        }
+      },
+      {
+        "type": "keyboard",
+        "data": {
+          "keyboard": {
+            "content": {
+              "rows": [
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_wr",
+                      "render_data": {
+                        "label": "查询WR",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/wr bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_leaderboard",
+                      "render_data": {
+                        "label": "排行榜",
+                        "visited_label": "打开中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 0,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "https://gokz.top/maps/bkz_cakewalk/maptop",
+                        "reply": false,
+                        "enter": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "buttons": [
+                    {
+                      "id": "pb_progress",
+                      "render_data": {
+                        "label": "地图提升",
+                        "visited_label": "查询中",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/mp bkz_cakewalk -m KZT",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "pb_rate",
+                      "render_data": {
+                        "label": "评分",
+                        "visited_label": "打开评分",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk",
+                        "reply": true,
+                        "enter": true
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  ],
+  "kzglobal/ban": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "玩家: 76561197960278073 的封禁记录\n╔═════════════\n║ 玩家: Player Name\n║ 封禁类型: bhop_hack\n║ 服务器ID: server-1\n║ 创建时间: 2026-10-01 18:00:00\n║ 解封时间: 永久封禁\n║ 备注: Notes\n╚═════════════\n"
+        }
+      }
+    ]
+  ],
+  "kzglobal/rank": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "╔════════════\n║ 玩家:　　　Player Name\n║ 模式:　　　KZT\n║ 全球排名:　No.20\n║ 地区排名：cn#2\n║ 总分V1:　　12,345\n║ 总分v2:　　0\n║ Rating:　　9.50\n║ Rating.E:　0.00\n║ Rating.H:　0.00\n║ OVR WRs: 1  PRO WRS: 0\n║ T5: 0 | T6: 0 | T7: 0 | T8: 0\n║ 完成地图数: 10\n║ SteamID64: 76561197960278073\n║ 最后更新:　N/A\n╚═════════════"
+        }
+      }
+    ]
+  ],
+  "kzglobal/rank_update": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "╔════════════\n║ 玩家:　　　Player Name\n║ SteamID64: 76561197960278073\n║ 模式:　　　KZT\n║ 全球排名:　No.20\n║ 地区排名：cn#2\n║ 总分V1:　　12,345\n║ 总分v2:　　0\n║ Rating:　　9.50\n║ Rating.E:　0.00\n║ Rating.H:　0.00\n║ OVR WRs: 1  PRO WRS: 0\n║ T5: 0 | T6: 0 | T7: 0 | T8: 0\n║ 完成地图数: 10\n║ 最后更新:　N/A\n╚═════════════"
+        }
+      }
+    ]
+  ],
+  "kzglobal/review": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "╔ 地图:　bkz_cakewalk\n║ 难度:　T3\n║ 作者:　Author\n╠═════评价统计═════\n║ 总体评分:　4.0⭐ (1人评价)\n║ 视觉评分:　3.0⭐ (1人评价)\n║ 玩法评分:　5.0⭐ (1人评价)\n║ 评论数量:　1\n╠═════玩家评论═════\n║ 1. Player Name (4⭐)\n║    A good map\n╚═════════════"
+        }
+      }
+    ]
+  ],
+  "kzglobal/rate": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# 为地图评分\n\n地图：**bkz_cakewalk**\n\n> 点击星级即可提交总体评分；点击下方按钮可为已评分地图写评论。"
+          }
+        }
+      },
+      {
+        "type": "keyboard",
+        "data": {
+          "keyboard": {
+            "content": {
+              "rows": [
+                {
+                  "buttons": [
+                    {
+                      "id": "rate_1",
+                      "render_data": {
+                        "label": "1⭐",
+                        "visited_label": "已提交",
+                        "style": 0
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk 1",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "rate_2",
+                      "render_data": {
+                        "label": "2⭐",
+                        "visited_label": "已提交",
+                        "style": 0
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk 2",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "rate_3",
+                      "render_data": {
+                        "label": "3⭐",
+                        "visited_label": "已提交",
+                        "style": 0
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk 3",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "rate_4",
+                      "render_data": {
+                        "label": "4⭐",
+                        "visited_label": "已提交",
+                        "style": 1
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk 4",
+                        "reply": true,
+                        "enter": true
+                      }
+                    },
+                    {
+                      "id": "rate_5",
+                      "render_data": {
+                        "label": "5⭐",
+                        "visited_label": "已提交",
+                        "style": 0
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/rate bkz_cakewalk 5",
+                        "reply": true,
+                        "enter": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "buttons": [
+                    {
+                      "id": "rate_comment",
+                      "render_data": {
+                        "label": "写评论",
+                        "visited_label": "请输入评论",
+                        "style": 0
+                      },
+                      "action": {
+                        "type": 2,
+                        "permission": {
+                          "type": 2
+                        },
+                        "data": "/comment bkz_cakewalk ",
+                        "reply": true,
+                        "enter": false
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  ],
+  "gokz_top/find": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "════查找玩家════\nPlayer Name | 76561197960278073\n"
+        }
+      }
+    ]
+  ],
+  "gokz_top/ccf": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "════成分查询════\nsteamid: 76561197960278073\n范围:　　全部记录\n总时长:　2.00h\n════════════\n1. Test Server | 2.00h | (100.00%)\n"
+        }
+      }
+    ]
+  ],
+  "gokz_top/mp": [
+    [
+      {
+        "type": "text",
+        "data": {
+          "text": "玩家: 76561197960278073\n在地图: bkz_cakewalk\n模式: KZT 的进度\n=====TP=====\n╔ 1:01.250 (-00.000)\n╠ 2 TPs\n╚ 2026年10月1日 18:00\n"
+        }
+      }
+    ]
+  ],
+  "gokz_top/server": [
+    [
+      {
+        "type": "markdown",
+        "data": {
+          "markdown": {
+            "content": "# AXE 服务器状态\n\n## 其他地区\n\n- [**AXE Test**](https://gokz.top/servers/group/axekz) · *bkz_cakewalk*\n  `Player Name`\n"
+          }
+        }
+      }
+    ]
+  ]
+}
