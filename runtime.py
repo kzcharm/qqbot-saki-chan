@@ -1,17 +1,29 @@
-"""Select independently configured NoneBot adapters."""
+"""Select independently configured NoneBot adapters from files or process env."""
 
+import json
+import os
 from typing import Any
 
 
 def enabled_platforms(config: Any) -> tuple[str, ...]:
-    configured = tuple(
-        name
-        for name, key in (("qq", "qq_bots"), ("discord", "discord_bots"))
-        if getattr(config, key, None)
-    )
+    configured = []
+    for name in ("qq", "discord"):
+        value = getattr(config, name + "_bots", None)
+        if value is None:
+            value = os.getenv(name.upper() + "_BOTS", "[]")
+        if isinstance(value, str):
+            value = json.loads(value)
+        if value:
+            configured.append(name)
     requested = getattr(config, "bot_platforms", None)
     if requested is None:
-        return configured
+        requested = os.getenv("BOT_PLATFORMS")
+    if requested is None:
+        if not configured:
+            raise ValueError(
+                "Configure QQ_BOTS and/or DISCORD_BOTS before starting the bot"
+            )
+        return tuple(configured)
     names = tuple(
         dict.fromkeys(
             name.strip().lower() for name in requested.split(",") if name.strip()
