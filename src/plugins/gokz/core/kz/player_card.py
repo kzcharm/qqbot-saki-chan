@@ -28,20 +28,22 @@ def website_base_url() -> str:
     return base
 
 
-def capture_player_card(url: str, cache_file: Path) -> str:
+def capture_player_card(url: str, cache_file: Path, width: int = 480, test_id: str = "player-card", timezone_id: str | None = None) -> str:
     options = webdriver.ChromeOptions()
-    for argument in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--window-size=480,1200"):
+    for argument in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage", f"--window-size={width},1200"):
         options.add_argument(argument)
     driver = webdriver.Chrome(options=options)
     try:
         driver.set_page_load_timeout(45)
         driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
-            "width": 480, "height": 1200, "deviceScaleFactor": 2, "mobile": False,
+            "width": width, "height": 1200, "deviceScaleFactor": 2, "mobile": False,
         })
+        if timezone_id:
+            driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": timezone_id})
         driver.get(url)
 
         def ready(current):
-            elements = current.find_elements(By.CSS_SELECTOR, '[data-testid="player-card"]')
+            elements = current.find_elements(By.CSS_SELECTOR, f'[data-testid="{test_id}"]')
             if not elements:
                 return False
             card = elements[0]

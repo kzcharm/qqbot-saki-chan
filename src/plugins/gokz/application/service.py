@@ -563,7 +563,12 @@ async def _execute(ctx: RequestContext, name: str, request: CommandInput) -> Res
                         or "—",
                     )
                 )
+            result.data["map_id"] = map_data["id"]
             result.data["progress"] = progress
+            result.data["unavailable_types"] = [
+                kind for kind, history in zip(("NUB", "PRO"), histories)
+                if isinstance(history, Exception)
+            ]
             return result
         return await reviews(ctx, name, request, map_data, steamid)
     if name == "pr":

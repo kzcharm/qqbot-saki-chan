@@ -194,6 +194,7 @@ async def capture(module_name, command, text):
     }
     with (
         patch.object(module, "CommandData", return_value=cd, create=True),
+        patch.object(module, "render_progress_card", AsyncMock(return_value=b"progress-card"), create=True),
         patch.object(
             matcher,
             "send",

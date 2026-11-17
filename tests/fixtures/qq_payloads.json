@@ -504,9 +504,9 @@
   "gokz_top/mp": [
     [
       {
-        "type": "text",
+        "type": "file_image",
         "data": {
-          "text": "玩家: 76561197960278073\n在地图: bkz_cakewalk\n模式: KZT 的进度\n=====TP=====\n╔ 1:01.250 (-00.000)\n╠ 2 TPs\n╚ 2026年10月1日 18:00\n"
+          "content": "b'progress-card'"
         }
       }
     ]

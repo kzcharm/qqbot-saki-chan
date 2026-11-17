@@ -92,7 +92,7 @@ nb run --reload
 - `/server` 列出可用服务器组；`/server <服务器组或名称>` 查看实时服务器状态，例如 `/server axekz`。别名：`/s`、`/servers`、`/serv`。
 - `/group_info` 在群聊中查看群组 ID 与默认服务器组；根用户可用 `/set_server <服务器组>` 为当前群设置默认值，或 `/set_server <群组 ID> <服务器组>` 远程设置。此后直接 `/server` 查询该服务器组。
 
-- `/mp`| `/mapprogress` |`/进度 <map_name>` 查询玩家在某张地图上的进步情况
+- `/mp`| `/mapprogress` |`/进度 <map_name>` 使用网站现有的 Run History 图表生成中文图片，显示玩家头像：仅显示有记录的 NUB/PRO；两类都有记录时上下拼接。复用每日最佳 PB、WR Gap 坐标、用时标签和重叠标签省略规则。日期按 UTC+8 显示，需要先部署网站的 `/cards/run-history/:identifier` 卡片页面；QQ 默认传入 `lang=zh-CN`。
 - `/daily` | `/每日地图` 获取今日的挑战旧图和开荒新图；当天重复查询会返回相同结果
 -  `/ccf` | `/查成分` 查询玩家游玩最多的服务器
 - `/find <name>` 通过昵称查找玩家(注意这个并不是实时更新)

@@ -654,6 +654,33 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result.description, "—")
                 self.assertIsNone(result.data["stats"]["most_played_server"])
 
+    async def test_progress_card_captures_shared_website_view_and_cleans_up(self):
+        from src.plugins.gokz.presentation import progress_card
+        from urllib.parse import urlsplit, parse_qs
+
+        data = {"steamid": "76561197960278073", "map_id": 123, "map_name": "kz_test & more", "scope": "KZT"}
+        def capture(url, path, **kwargs):
+            self.assertEqual(kwargs, {"width": 1200, "test_id": "run-history-card", "timezone_id": "Asia/Shanghai"})
+            self.assertEqual(parse_qs(urlsplit(url).query)["mapName"], [data["map_name"]])
+            self.assertEqual(parse_qs(urlsplit(url).query)["lang"], ["zh-CN"])
+            path.write_bytes(b"website-card")
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            progress_card.store, "get_cache_dir", return_value=Path(directory)
+        ), patch.object(progress_card, "website_base_url", return_value="https://example.test"), patch.object(
+            progress_card, "capture_player_card", side_effect=capture
+        ) as screenshot:
+            self.assertEqual(await progress_card.render_progress_card(data), b"website-card")
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            with self.assertRaises(ValueError):
+                await progress_card.render_progress_card({**data, "map_id": "../bad"})
+            self.assertEqual(screenshot.call_count, 1)
+            screenshot.side_effect = RuntimeError("capture failed")
+            with self.assertRaises(RuntimeError):
+                await progress_card.render_progress_card(data)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+
     async def test_progress_calculations_are_shared_and_split_teleported_runs(self):
         records = [
             {"time": t, "teleports": tp, "created_on": str(i)}

@@ -8,11 +8,6 @@ from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 from src.plugins.gokz.core.command_helper import CommandData, parse_args
 from src.plugins.gokz.core.daily_map_message import daily_map_message
-from src.plugins.gokz.core.formatter import (
-    diff_seconds_to_time,
-    format_gruntime,
-    record_format_time,
-)
 from src.plugins.gokz.core.group_settings import (
     group_chat_id,
     group_info_markdown,
@@ -28,6 +23,7 @@ from src.plugins.gokz.core.server_status import (
 from ..application.models import CommandInput
 from ..presentation.qq_bridge import command_input, query
 from ..presentation.qq_legacy import on_command
+from ..presentation.progress_card import render_progress_card
 
 BASE = "https://api.gokz.top/v1"
 
@@ -198,36 +194,16 @@ async def map_progress(event: Event, args: Message = CommandArg()):
         return await progress.finish("🗺地图名都不给我怎么帮你查进度 (￣^￣) ")
 
     result = await query(progress, event, "mp", command_input(cd), target=cd.steamid if cd.steamid2 else None)
-    map_name, scope = result.data["map_name"], result.data["scope"]
+    map_name = result.data["map_name"]
     nub_records, pro_records = result.data["progress"]["NUB"], result.data["progress"]["PRO"]
     if not nub_records and not pro_records:
+        if result.data.get("unavailable_types"):
+            return await progress.finish("部分记录暂时无法读取，请稍后再试。")
         return await progress.finish(f"你尚未完成过{map_name}")
 
     try:
-        content = f"玩家: {cd.steamid}\n在地图: {map_name}\n模式: {scope} 的进度\n"
-
-        def generate_content(records_, title):
-            content_ = f"====={title}=====\n"
-            for i, (record_, completions_) in enumerate(records_):
-                if i == len(records_) - 1:
-                    time_diff = 0
-                else:
-                    time_diff = records_[i + 1][0]["time"] - record_["time"]
-                content_ += f"╔ {format_gruntime(record_['time'], True)} (-{diff_seconds_to_time(time_diff)})\n"
-                content_ += f"╠ {record_['teleports']} TPs\n"
-                content_ += f"╚ {record_format_time(record_['created_on'])}\n"
-                if i < len(records_) - 1 and records_[i][1] > 0:
-                    content_ += f"--- {records_[i][1]} 次完成 ---\n"
-            return content_
-
-        if nub_records:
-            content += generate_content(nub_records, "TP")
-        if pro_records:
-            content += generate_content(pro_records, "PRO")
-        # Add newline at start for group messages (bot will @ user automatically)
-        if getattr(event, 'group_id', None):
-            content = '\n' + content
-        await progress.finish(content)
-    except (KeyError, IndexError, TypeError, ValueError) as e:
-        logger.error(f"Error processing progress data: {e}")
-        return await progress.finish("解析数据失败，请稍后再试。")
+        image = await render_progress_card(result.data)
+    except Exception:
+        logger.exception("Map progress card generation failed")
+        return await progress.finish("进度卡片生成失败，请稍后再试。")
+    await progress.finish(MessageSegment.file_image(image))
