@@ -43,6 +43,23 @@ async def _pb_records(**params: Any) -> list[dict[str, Any]]:
     return [_record(item) for item in data if isinstance(item, Mapping)]
 
 
+async def _with_rank(
+    record: dict[str, Any] | None, scope: str, record_type: str,
+) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    response = await fetch_json(
+        f"{BASE_URL}/records/rank",
+        params={"uuid_list": [record["uuid"]], "scope": _scope(scope), "type": record_type},
+    )
+    rows = response.get("data") if isinstance(response, Mapping) else None
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, Mapping) and row.get("record_uuid") == record["uuid"]:
+                return {**record, "rank": row.get("rank"), "total_count": row.get("total_count")}
+    return record
+
+
 async def fetch_personal_best(
     steamid64: str, map_name: str, scope: str, record_type: str,
 ) -> dict[str, Any] | None:
@@ -54,7 +71,7 @@ async def fetch_personal_best(
         stage=0,
         limit=1,
     )
-    return records[0] if records else None
+    return await _with_rank(records[0] if records else None, scope, record_type)
 
 
 async def fetch_personal_recent(steamid64: str, scope: str) -> dict[str, Any] | None:
@@ -71,7 +88,8 @@ async def fetch_personal_recent(steamid64: str, scope: str) -> dict[str, Any] | 
         _pb_records(**common, type="PRO"),
     )
     records = nub_records + pro_records
-    return max(records, key=lambda record: str(record.get("created_on") or "")) if records else None
+    recent = max(records, key=lambda record: str(record.get("created_on") or "")) if records else None
+    return await _with_rank(recent, scope, "NUB")
 
 
 async def fetch_world_record(

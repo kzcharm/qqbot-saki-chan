@@ -14,6 +14,7 @@ def load_display_helpers():
         and node.name in {
             "gokz_record_mode_label",
             "gokz_record_rating_line",
+            "gokz_record_rank_line",
             "gokz_record_tier",
         }
     ]
@@ -64,6 +65,12 @@ class TestGOKZRecordDisplay(unittest.TestCase):
 
         self.assertEqual(tier({"map_name": "kz_cached", "map_tier": 6}), 6)
         self.assertEqual(tier({"map_name": "kz_cached"}), 3)
+
+    def test_rank_shows_position_and_total_without_bucket_label(self):
+        render = HELPERS["gokz_record_rank_line"]
+        self.assertEqual(render({"rank": 42, "total_count": 1280}), "排名:　　42/1,280")
+        for record in ({}, {"rank": None, "total_count": None}, {"rank": 42}):
+            self.assertEqual(render(record), "排名:　　—")
 
 
 if __name__ == "__main__":

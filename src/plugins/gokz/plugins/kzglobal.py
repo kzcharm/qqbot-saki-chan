@@ -254,6 +254,12 @@ def gokz_record_rating_line(record: dict) -> str:
     return f"║ Rating:　{rating}" if rating is not None else ""
 
 
+def gokz_record_rank_line(record: dict) -> str:
+    rank, total = record.get("rank"), record.get("total_count")
+    value = f"{rank:,}/{total:,}" if rank is not None and total is not None else "—"
+    return f"排名:　　{value}"
+
+
 def gokz_record_tier(record: dict):
     """Use the v1 record tier, including for maps absent from the local cache."""
     return record["map_tier"] if record.get("map_tier") is not None else MAP_TIERS.get(
@@ -408,6 +414,7 @@ async def handle_pr(bot: Bot, event: Event, args: Message = CommandArg()):
         f"模式:　　{gokz_record_mode_label(data, cd.mode)}",
         f"玩家:　　{player_name}",
         f"用时:　　{format_gruntime(data['time'])}",
+        gokz_record_rank_line(data),
         f"存点数:　{data['teleports']}",
         f"分数:　　{data['points']}",
         f"服务器:　{data['server_name']}",
@@ -451,6 +458,7 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
             f"玩家:　　{data['player_name']}",
             f"模式:　　{gokz_record_mode_label(data, cd.mode)}",
             f"用时:　　{format_gruntime(data['time'])}",
+            gokz_record_rank_line(data),
             f"存点数:　{data['teleports']}",
             f"分数:　　{data['points']}",
         ]
@@ -469,6 +477,7 @@ async def map_pb(bot: Bot, event: Event, args: Message = CommandArg()):
             f"玩家:　　{pro['player_name']}",
             f"模式:　　{gokz_record_mode_label(pro, cd.mode)}",
             f"用时:　　{format_gruntime(pro['time'])}",
+            gokz_record_rank_line(pro),
             f"分数:　　{pro['points']}",
         ]
         if rating_line := gokz_record_rating_line(pro):

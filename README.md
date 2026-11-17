@@ -81,8 +81,8 @@ nb run --reload
 
 - `/kz` | `/kzgo` 生成 GOKZ.TOP 玩家卡片，包含基本资料、NUB 完成度和技能雷达图。支持 `OVR`、`KZT`、`SKZ`、`VNL`。
 
-- `/pb <map_name>` 查询玩家在某张地图上的PB
-- `/pr` 查询玩家最新跳的一张图
+- `/pb <map_name>` 查询玩家在某张地图上的 PB，存点和裸跳记录分别显示对应排行榜的排名/总人数。
+- `/pr` 查询玩家最新的 PB，默认显示 NUB 排行榜的排名/总人数。排名不可用时显示 `—`。
 - `/wr  <map_name>` 查询世界记录
 
 ### GOKZ.TOP

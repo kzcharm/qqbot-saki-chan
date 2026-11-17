@@ -205,9 +205,14 @@ async def capture(module_name, command, text):
         patch.object(service, "preference", return_value="KZT"),
         patch.object(service, "get_maps", AsyncMock()),
         patch.object(service, "resolve_map_name", return_value=(MAP["name"], [])),
-        patch.object(service, "fetch_personal_best", AsyncMock(return_value=RECORD)),
+        patch.object(service, "fetch_personal_best", AsyncMock(side_effect=[
+            {**RECORD, "rank": 42, "total_count": 1280},
+            {**RECORD, "rank": 18, "total_count": 460},
+        ])),
         patch.object(service, "fetch_world_record", AsyncMock(return_value=RECORD)),
-        patch.object(service, "fetch_personal_recent", AsyncMock(return_value=RECORD)),
+        patch.object(service, "fetch_personal_recent", AsyncMock(return_value={
+            **RECORD, "rank": 42, "total_count": 1280,
+        })),
         patch.object(service, "fetch_personal_bans", AsyncMock(return_value=BANS)),
         patch.object(
             service, "fetch_run_history", AsyncMock(return_value={"data": [RECORD]})
