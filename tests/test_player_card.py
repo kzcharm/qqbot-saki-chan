@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 SPEC = importlib.util.spec_from_file_location("player_card_under_test", Path(__file__).resolve().parents[1] / "src/plugins/gokz/core/kz/player_card.py")
 card = importlib.util.module_from_spec(SPEC)
@@ -113,9 +113,13 @@ class BrowserCleanupTests(unittest.TestCase):
         driver.execute_script.return_value = bounds
         driver.execute_cdp_cmd.return_value = {"data": base64.b64encode(b"png").decode()}
         with tempfile.TemporaryDirectory() as directory, patch.object(card.webdriver, "Chrome", return_value=driver):
-            result = Path(card.capture_player_card("https://example.test", Path(directory) / "card.png"))
+            result = Path(card.capture_player_card("https://example.test", Path(directory) / "card.png", light_theme=True))
             self.assertEqual(result.read_bytes(), b"png")
         self.assertEqual(driver.execute_cdp_cmd.call_args_list[0].args[1]["deviceScaleFactor"], 2)
+        theme_call = call.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": "localStorage.setItem('vite-ui-theme', 'light');",
+        })
+        self.assertLess(driver.mock_calls.index(theme_call), driver.mock_calls.index(call.get("https://example.test")))
         self.assertEqual(driver.execute_cdp_cmd.call_args.args[1]["clip"], {**bounds, "scale": 1})
         driver.quit.assert_called_once()
 

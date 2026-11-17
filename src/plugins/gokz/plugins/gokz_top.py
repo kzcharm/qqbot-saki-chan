@@ -1,4 +1,4 @@
-from textwrap import dedent
+
 
 from nonebot import logger
 from nonebot.adapters.qq import Message, MessageSegment
@@ -24,11 +24,14 @@ from ..application.models import CommandInput
 from ..presentation.qq_bridge import command_input, query
 from ..presentation.qq_legacy import on_command
 from ..presentation.progress_card import render_progress_card
+from ..presentation.server_playtime_card import render_server_playtime_card
+from ..presentation.activity_card import render_activity_card
 
 BASE = "https://api.gokz.top/v1"
 
 progress = on_command('mp', aliases={'progress', '进度'})
 ccf = on_command('ccf', aliases={'查成分'})
+activity = on_command('activity', aliases={'活跃'})
 pk = on_command('pk', aliases={'pk'})
 find = on_command('find', aliases={'查找'})
 group_rank = on_command('群排名', aliases={'group_rank'}, permission=SUPERUSER)
@@ -143,6 +146,20 @@ async def find_handle(event: Event, args: Message = CommandArg()):
         await find.send("客服小祥提醒您: 请输入你要查找的玩家名")
 
 
+@activity.handle()
+async def activity_handle(event: Event, args: Message = CommandArg()):
+    cd = CommandData(event, args)
+    if cd.error:
+        return await activity.finish(cd.error)
+    result = await query(activity, event, "activity", command_input(cd))
+    try:
+        image = await render_activity_card(result.data)
+    except Exception:
+        logger.exception("Activity card generation failed")
+        return await activity.finish(f"活跃记录卡片生成失败，可直接预览：\n{result.links[0][1]}")
+    return await activity.finish(MessageSegment.file_image(image))
+
+
 @ccf.handle()
 async def check_cheng_fen(event: Event, args: Message = CommandArg()):
     cd = CommandData(event, args)
@@ -151,37 +168,14 @@ async def check_cheng_fen(event: Event, args: Message = CommandArg()):
 
 
     result = await query(ccf, event, "ccf", command_input(cd))
-    records, preset = result.data["stats"], result.data["preset"]
-    preset_names = {'all': '全部记录', 'pb': '仅PB记录', 'last_year': '最近一年', 'last_100_hours': '最近100小时'}
-
+    if not result.data["distribution"].get("entries"):
+        return await ccf.finish("该时间范围内未找到该玩家的游玩记录。")
     try:
-        most_played = records.get('most_played_server', {}) if isinstance(records, dict) else {}
-        periods = most_played.get('all_time', {}) if isinstance(most_played, dict) else {}
-        groups = periods.get('entries', []) if isinstance(periods, dict) else []
-        if not groups:
-            return await ccf.finish("未找到该玩家的游玩记录。")
-
-        total_hours = float(periods.get('total_seconds', 0)) / 3600
-        current_preset_name = preset_names[preset]
-        content = dedent(f"""
-            ════成分查询════
-            steamid: {records.get('steamid64', cd.steamid)}
-            范围:　　{current_preset_name}
-            总时长:　{total_hours:.2f}h
-            ════════════
-        """).strip() + '\n'
-        for idx, group in enumerate(groups[:10]):
-            group_name = group.get('label', '未知服务器组')
-            playtime_hours = float(group.get('total_seconds', 0)) / 3600
-            percentage = playtime_hours / total_hours * 100 if total_hours else 0
-            content += f"{idx+1}. {group_name} | {playtime_hours:.2f}h | ({percentage:.2f}%)\n"
-        # Add newline at start for group messages (bot will @ user automatically)
-        if getattr(event, 'group_id', None):
-            content = '\n' + content
-        return await ccf.finish(content)
-    except (KeyError, IndexError, TypeError, ValueError) as e:
-        logger.error(f"Error processing records data: {e}")
-        return await ccf.finish("解析数据失败，请稍后再试。")
+        image = await render_server_playtime_card(result.data)
+    except Exception:
+        logger.exception("Server playtime card generation failed")
+        return await ccf.finish("成分卡片生成失败，请稍后再试。")
+    return await ccf.finish(MessageSegment.file_image(image))
 
 
 @progress.handle()

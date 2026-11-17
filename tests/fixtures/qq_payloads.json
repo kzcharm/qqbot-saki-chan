@@ -494,9 +494,9 @@
   "gokz_top/ccf": [
     [
       {
-        "type": "text",
+        "type": "file_image",
         "data": {
-          "text": "════成分查询════\nsteamid: 76561197960278073\n范围:　　全部记录\n总时长:　2.00h\n════════════\n1. Test Server | 2.00h | (100.00%)\n"
+          "content": "b'server-playtime-card'"
         }
       }
     ]

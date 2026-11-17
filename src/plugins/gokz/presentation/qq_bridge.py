@@ -95,6 +95,7 @@ CUSTOM_VIEWS = frozenset(
         "set_server",
         "find",
         "ccf",
+        "activity",
         "review",
         "rate",
         "comment",

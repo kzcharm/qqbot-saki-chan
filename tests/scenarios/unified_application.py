@@ -654,6 +654,83 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result.description, "—")
                 self.assertIsNone(result.data["stats"]["most_played_server"])
 
+    async def test_ccf_selects_actual_period_on_both_platforms(self):
+        all_time = {"entries": [{"label": "All server", "total_seconds": 7200}]}
+        recent = {"entries": [{"label": "Recent server", "total_seconds": 3600}]}
+        with patch.object(service, "read", AsyncMock(return_value={
+            "most_played_server": {"all_time": all_time, "last_365_days": recent},
+        })) as read:
+            for platform in ("qq", "discord"):
+                for argument in ((), ("all",), ("all_time",), ("recent",), ("last_year",), ("year",), ("last_365_days",)):
+                    result = await service.execute(
+                        RequestContext(platform, "actor"), "ccf",
+                        CommandInput(steamid="76561197960278073", arguments=argument),
+                    )
+                    expected = all_time if not argument or argument[0] in {"all", "all_time"} else recent
+                    self.assertEqual(result.data["distribution"], expected)
+                    self.assertIn(expected["entries"][0]["label"], result.description)
+                for argument in ("pb", "100h", "unknown"):
+                    count = read.await_count
+                    with self.assertRaises(UserError):
+                        await service.execute(
+                            RequestContext(platform, "actor"), "ccf",
+                            CommandInput(steamid="76561197960278073", arguments=(argument,)),
+                        )
+                    self.assertEqual(read.await_count, count)
+
+    async def test_activity_resolves_player_and_captures_calendar(self):
+        from src.plugins.gokz.presentation import activity_card as card
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(card.store, "get_cache_dir", return_value=Path(directory)):
+            def capture(url, path, **kwargs):
+                self.assertIn("/cards/activity/76561197960278073?lang=", url)
+                self.assertEqual(kwargs, {"width": 1200, "test_id": "activity-card", "light_theme": True})
+                path.write_bytes(b"calendar")
+
+            with patch.object(card, "capture_player_card", side_effect=capture) as render:
+                for platform, lang in (("qq", "zh-CN"), ("discord", "en")):
+                    result = await service.execute(RequestContext(platform, "actor"), "activity", CommandInput(steamid="76561197960278073"))
+                    self.assertEqual(result.data, {"steamid": "76561197960278073", "lang": lang})
+                    self.assertEqual(await card.render_activity_card(result.data), b"calendar")
+                    self.assertTrue(render.call_args.args[0].endswith(f"lang={lang}"))
+                    self.assertEqual(list(Path(directory).iterdir()), [])
+                render.side_effect = RuntimeError("Browser failed")
+                with self.assertRaises(RuntimeError):
+                    await card.render_activity_card(result.data)
+                self.assertEqual(list(Path(directory).iterdir()), [])
+                render.reset_mock()
+                with self.assertRaises(ValueError):
+                    await card.render_activity_card({"steamid": "../bad", "lang": "zh-CN"})
+                render.assert_not_called()
+
+    async def test_ccf_captures_webpage_and_removes_temporary_files(self):
+        from src.plugins.gokz.presentation import server_playtime_card as card
+
+        def capture(url, path, **kwargs):
+            self.assertIn("/cards/server-playtime/76561197960278073?period=", url)
+            self.assertEqual(kwargs, {"width": 1200, "test_id": "server-playtime-card", "light_theme": True})
+            path.write_bytes(b"website-card")
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(card.store, "get_cache_dir", return_value=Path(directory)),
+            patch.object(card, "capture_player_card", side_effect=capture) as render,
+        ):
+            for period in ("all", "recent"):
+                self.assertEqual(await card.render_server_playtime_card({
+                    "steamid": "76561197960278073", "preset": period,
+                }), b"website-card")
+                self.assertTrue(render.call_args.args[0].endswith(f"period={period}&lang=zh-CN"))
+                self.assertEqual(list(Path(directory).iterdir()), [])
+            render.side_effect = RuntimeError("Browser failed")
+            with self.assertRaises(RuntimeError):
+                await card.render_server_playtime_card({"steamid": "76561197960278073", "preset": "all"})
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            render.reset_mock()
+            with self.assertRaises(ValueError):
+                await card.render_server_playtime_card({"steamid": "../invalid", "preset": "all"})
+            render.assert_not_called()
+
     async def test_progress_card_captures_shared_website_view_and_cleans_up(self):
         from src.plugins.gokz.presentation import progress_card
         from urllib.parse import urlsplit, parse_qs
@@ -679,7 +756,6 @@ class ApplicationTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(RuntimeError):
                 await progress_card.render_progress_card(data)
             self.assertEqual(list(Path(directory).iterdir()), [])
-
 
     async def test_progress_calculations_are_shared_and_split_teleported_runs(self):
         records = [

@@ -76,6 +76,7 @@ COMMANDS = (
     CommandSpec(
         "ccf", "Show most-played server groups", "查询常玩服务器", ("查成分",), "period"
     ),
+    CommandSpec("activity", "Show the last 365 days of activity", "查询最近365天活跃记录", ("活跃",)),
     CommandSpec(
         "review",
         "Show map reviews and comments",

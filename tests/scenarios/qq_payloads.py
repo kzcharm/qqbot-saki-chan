@@ -74,7 +74,11 @@ STATS = {
         "all_time": {
             "total_seconds": 7200,
             "entries": [{"label": "Test Server", "total_seconds": 7200}],
-        }
+        },
+        "last_365_days": {
+            "total_seconds": 3600,
+            "entries": [{"label": "Recent Server", "total_seconds": 3600}],
+        },
     },
 }
 REVIEWS = {
@@ -195,6 +199,8 @@ async def capture(module_name, command, text):
     with (
         patch.object(module, "CommandData", return_value=cd, create=True),
         patch.object(module, "render_progress_card", AsyncMock(return_value=b"progress-card"), create=True),
+        patch.object(module, "render_server_playtime_card", AsyncMock(return_value=b"server-playtime-card"), create=True),
+        patch.object(module, "render_activity_card", AsyncMock(return_value=b"activity-card"), create=True),
         patch.object(
             matcher,
             "send",
@@ -257,6 +263,13 @@ async def main():
         assert values[name] == expected[name], (
             f"{name}: QQ payload differs from the original\n{values[name]}\n{expected[name]}"
         )
+    assert await capture("gokz_top", "ccf", "recent") == expected["gokz_top/ccf"]
+    assert await capture("gokz_top", "activity", "") == [[{
+        "type": "file_image", "data": {"content": "b'activity-card'"},
+    }]]
+    with patch.dict(STATS, {"most_played_server": None}):
+        empty = await capture("gokz_top", "ccf", "recent")
+        assert empty[0][0]["data"]["text"] == "该时间范围内未找到该玩家的游玩记录。"
     print(f"{len(values)} original QQ payloads preserved through shared features")
 
 

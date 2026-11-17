@@ -11,7 +11,7 @@
     "src/plugins/gokz/core/pr_compliment.py": "cfa33bbd6219bca732b881a694a741b610e29d91e96c434a46f047657eac097a",
     "src/plugins/gokz/core/server_status.py": "df8a1ad7ce184308159702a6da40afb07ebcd3f09cd82367fa7935e69d92d792",
     "src/plugins/gokz/core/group_settings.py": "6008fe6bbe3ecd7c8bd8ac87770fddbc42cba4d75df20159548c3deff0d23f88",
-    "src/plugins/gokz/core/command_panel.py": "833c4cb6f89777d76896dbe1227dcc2c78dd0fdc3719f37fcc7cca2ce97a8b6a"
+    "src/plugins/gokz/core/command_panel.py": "773b2c9c0db57525b009559ef58940bb1520bd733a5cdc9fdf1071311814cea9"
   },
   "functions": {
     "src/plugins/gokz/plugins/kzglobal.py": {

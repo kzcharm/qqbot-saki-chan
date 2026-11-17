@@ -677,28 +677,36 @@ async def _execute(ctx: RequestContext, name: str, request: CommandInput) -> Res
                 )
             ],
         )
-    if name == "ccf":
-        data = await read(f"/players/{steamid}/stats")
-        period = (request.arguments or ("all",))[0]
-        if period not in {
-            "all",
-            "pb",
-            "top",
-            "last_year",
-            "year",
-            "last_100_hours",
-            "100h",
-        }:
-            raise UserError(
-                "Choose all, pb, last_year, or last_100_hours.",
-                "请选择 all、pb、last_year 或 last_100_hours。",
-            )
-        # The v1 API currently provides server playtime for all time only.
-        distribution = data.get("most_played_server") or {}
-        all_time = distribution.get("all_time") or {}
-        groups = all_time.get("entries") or []
+    if name == "activity":
         return Result(
-            text(ctx, "Most-played servers (all time)", "常玩服务器（全部）"),
+            text(ctx, "Activity", "活跃记录"),
+            text(ctx, "Last 365 days", "最近365天"),
+            data={"steamid": steamid, "lang": ctx.locale},
+            links=[(text(ctx, "View activity card", "查看活跃记录卡片"), f"{website_base_url()}/cards/activity/{steamid}?lang={ctx.locale}")],
+        )
+    if name == "ccf":
+        period = (request.arguments or ("all",))[0].lower()
+        period = {
+            "all_time": "all",
+            "last_year": "recent",
+            "year": "recent",
+            "last_365_days": "recent",
+        }.get(period, period)
+        if period not in {"all", "recent"}:
+            raise UserError(
+                "Choose all or recent (last 365 days).",
+                "请选择 all（全部）或 recent（最近365天）。",
+            )
+        data = await read(f"/players/{steamid}/stats")
+        distribution = data.get("most_played_server") or {}
+        selected = (
+            distribution.get("all_time" if period == "all" else "last_365_days") or {}
+        )
+        groups = selected.get("entries") or []
+        return Result(
+            text(ctx, "Most-played servers (all time)", "常玩服务器（全部）")
+            if period == "all"
+            else text(ctx, "Most-played servers (last 365 days)", "常玩服务器（最近365天）"),
             "\n".join(
                 f"{g.get('label', '—')}: {float(g.get('total_seconds', 0)) / 3600:.2f}h"
                 for g in groups[:10]
@@ -706,11 +714,9 @@ async def _execute(ctx: RequestContext, name: str, request: CommandInput) -> Res
             or "—",
             data={
                 "stats": data,
-                "preset": {
-                    "top": "pb",
-                    "year": "last_year",
-                    "100h": "last_100_hours",
-                }.get(period, period),
+                "preset": period,
+                "distribution": selected,
+                "steamid": steamid,
             },
         )
     if name == "pw":

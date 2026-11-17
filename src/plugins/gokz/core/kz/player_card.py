@@ -28,7 +28,7 @@ def website_base_url() -> str:
     return base
 
 
-def capture_player_card(url: str, cache_file: Path, width: int = 480, test_id: str = "player-card", timezone_id: str | None = None) -> str:
+def capture_player_card(url: str, cache_file: Path, width: int = 480, test_id: str = "player-card", timezone_id: str | None = None, light_theme: bool = False) -> str:
     options = webdriver.ChromeOptions()
     for argument in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage", f"--window-size={width},1200"):
         options.add_argument(argument)
@@ -40,6 +40,10 @@ def capture_player_card(url: str, cache_file: Path, width: int = 480, test_id: s
         })
         if timezone_id:
             driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": timezone_id})
+        if light_theme:
+            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                "source": "localStorage.setItem('vite-ui-theme', 'light');",
+            })
         driver.get(url)
 
         def ready(current):

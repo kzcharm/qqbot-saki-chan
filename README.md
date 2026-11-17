@@ -94,8 +94,16 @@ nb run --reload
 
 - `/mp`| `/mapprogress` |`/进度 <map_name>` 使用网站现有的 Run History 图表生成中文图片，显示玩家头像：仅显示有记录的 NUB/PRO；两类都有记录时上下拼接。复用每日最佳 PB、WR Gap 坐标、用时标签和重叠标签省略规则。日期按 UTC+8 显示，需要先部署网站的 `/cards/run-history/:identifier` 卡片页面；QQ 默认传入 `lang=zh-CN`。
 - `/daily` | `/每日地图` 获取今日的挑战旧图和开荒新图；当天重复查询会返回相同结果
--  `/ccf` | `/查成分` 查询玩家游玩最多的服务器
+- `/ccf [all|recent]` | `/查成分 [all|recent]` 返回服务器组游玩时长环形图卡片。默认 `all` 显示全部记录，`recent` 显示最近365天；`all_time`、`last_year`、`year`、`last_365_days` 为对应别名。可用 `-s <SteamID64>` 指定玩家。按记录用时统计，最多显示12项；超过12个服务器组时保留前11组，其余合并为 Other。网页预览为 `/cards/server-playtime/<SteamID64>?period=all` 或 `?period=recent`，无需登录。QQ 使用现有 Chromium 截取同一页面，需要先部署网站再部署机器人；`GOKZ_TOP_WEBSITE_URL` 可指定本地或预发布网站。旧的 `pb`、`top`、`100h` 和 `last_100_hours` 参数不再接受，因为 API 不提供这些范围的服务器统计。
 - `/find <name>` 通过昵称查找玩家(注意这个并不是实时更新)
+
+服务器游玩时长卡片可添加 `&lang=zh-CN` 预览中文标签，或使用 `&lang=en` 查看英文。QQ `/ccf` 默认截取中文版本；服务器名称保留原文。
+
+`/ccf` 和 `/activity` 保持1200 CSS像素宽的横向卡片布局，并使用较大的文字以便手机查看图片。服务器图表与列表左右排列，完整活跃日历保持单行显示，无内部滚动条；窄屏也不会改为纵向布局。
+
+两种卡片均使用主站的主题颜色。QQ 截图在独立浏览器中选择主站的浅色主题；网页预览跟随查看者的主站主题设置，不会更改其已保存的偏好。
+
+- `/activity` | `/活跃` 返回最近365天的活跃日历图片，复用网站资料页的绿色热力图、时长分级和活跃天数统计；使用标准 `PlayerDisplay` 显示玩家。可用 `-s <SteamID64>` 指定玩家。网页预览为 `/cards/activity/<SteamID64>?lang=zh-CN`，英文使用 `?lang=en`。QQ 使用现有 Chromium 截图，需先部署网站页面再部署机器人。Discord 提供对应卡片链接。
 
 ### 玩家卡片截图
 
